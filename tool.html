@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Matching</title>
+<style>
+:root {
+  --bg: #0f1020; --panel: #181a33; --line: #2c2f57; --text: #e8e9ff; --dim: #9a9cc8;
+  --rec: #ff9f43; --ay: #4fd1ff; --noise: #c084fc; --good: #4ade80; --bad: #f87171; --accent: #ff5fa2;
+}
+:root[data-theme="light"] {
+  --bg: #f4f5ff; --panel: #ffffff; --line: #d7d9f2; --text: #17183a; --dim: #5b5e8c;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+h1 { font-size: 18px; margin: 0 8px 0 0; }
+h1 b { color: var(--accent); }
+h2 { font-size: 14px; margin: 0 0 8px; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; padding: 12px 16px; }
+@media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+button { background: var(--line); color: var(--text); border: 0; border-radius: 6px; padding: 6px 12px; font: inherit; cursor: pointer; }
+button.primary { background: var(--accent); color: #fff; font-weight: 600; }
+button.dirty { box-shadow: 0 0 0 3px var(--ay); animation: pulse 1.2s ease-in-out infinite alternate; }
+@keyframes pulse { to { box-shadow: 0 0 0 6px transparent; } }
+.dirty-note { color: var(--ay); font-weight: 600; }
+button:disabled { opacity: .45; cursor: default; }
+select { max-width: 100%; }
+input[type=number] { width: 70px; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px 5px; }
+label { color: var(--dim); }
+.row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 8px; }
+.slider { display: grid; grid-template-columns: 120px 1fr 48px; gap: 8px; align-items: center; margin: 4px 0; }
+.slider output { text-align: right; font-variant-numeric: tabular-nums; }
+canvas { width: 100%; display: block; border-radius: 6px; background: #000; image-rendering: pixelated; }
+#specRec, #specAy { height: 220px; }
+#lanes { height: 36px; background: transparent; }
+#slotBars { height: 160px; background: transparent; }
+.caption { display: flex; justify-content: space-between; color: var(--dim); font-size: 12px; margin: 6px 0 2px; }
+.stats { display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px; font-variant-numeric: tabular-nums; }
+.stats div:nth-child(odd) { color: var(--dim); }
+.mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+#status { color: var(--dim); }
+#frameInfo table { border-collapse: collapse; width: 100%; }
+#frameInfo td { padding: 1px 4px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border-radius: 0; background: transparent; }
+.seg button.on { background: var(--ay); color: #000; }
+.hint { color: var(--dim); font-size: 12px; margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1><a href="./" style="color:inherit;text-decoration:none"><b>VTX</b> voice matching</a></h1>
+  <select id="example" title="Public-domain LibriVox readings (see the explainer's credits); each sets a suggested gate and denoise">
+    <option value="">example…</option>
+    <option value="examples/librivox_kearney_at_seven_pines.wav" data-gate="60" data-denoise="0">"Kearney at Seven Pines", opening (LibriVox)</option>
+    <option value="examples/gettysburg_address_opening.wav" data-gate="60" data-denoise="0">The Gettysburg Address, opening (LibriVox)</option>
+    <option value="examples/librivox_adams_letter.wav" data-gate="60" data-denoise="0">John Adams's letter of 27 July 1777, opening (LibriVox)</option>
+    <option value="examples/librivox_seven_ages_of_man.wav" data-gate="60" data-denoise="0">"The Seven Ages of Man", opening (LibriVox)</option>
+  </select>
+  <input id="file" type="file" accept="audio/wav,.wav,audio/*">
+  <button id="record" title="Record from the microphone (stays in your browser); press again to stop">● Record</button>
+  <label title="Optional: a second recording of the same words (for example a cleaned-up copy) to score the AY against as well">score against <input id="refFile" type="file" accept="audio/wav,.wav,audio/*"></label>
+  <button id="refClear" class="small" hidden title="Stop scoring against the second recording">×</button>
+  <button id="playRef" hidden>▶ Reference</button>
+  <label>from <input id="from" type="number" min="0" step="0.5" value="0"> s</label>
+  <label>to <input id="to" type="number" min="0.5" step="0.5" value="10"> s</label>
+  <button id="go" class="primary" disabled>Match</button>
+  <label title="The AY clock of the target machine: it sets every period register">machine <select id="machine"></select></label>
+  <span class="seg" id="updates"><button data-v="50" class="on">50 Hz</button><button data-v="100">100 Hz</button><button data-v="200">200 Hz</button></span>
+  <button id="playRec" disabled>▶ Recording</button>
+  <button id="playTarget" disabled title="The processed sound the AY is matched to (with any preprocessing on)">▶ Target</button>
+  <button id="playAy" disabled>▶ AY</button>
+  <button id="playSeq" disabled title="The whole recording, half a second of silence, then the whole AY version (same peak level)">▶ A/B</button>
+  <button id="stop">■</button>
+  <button id="theme" title="Light or dark">◐</button>
+  <span id="status">Choose a WAV file.</span>
+</header>
+<main>
+  <section>
+    <div class="panel">
+      <div class="caption"><span style="color:var(--rec)">Recording</span><span>0–6 kHz · white: pitch · <span style="color:var(--good)">F1</span> <span style="color:var(--ay)">F2</span> (LPC)</span></div>
+      <canvas id="specRec" height="256"></canvas>
+      <div class="caption"><span style="color:var(--ay)">AY (Ayumi)</span><span>click a frame to inspect it</span></div>
+      <canvas id="specAy" height="256"></canvas>
+      <div class="caption"><span>Channels per update: <span style="color:var(--accent)">envelope</span> · <span style="color:var(--ay)">square</span> · <span style="color:var(--noise)">noise</span></span><span>A / B / C</span></div>
+      <canvas id="lanes" height="36"></canvas>
+    </div>
+    <div class="panel" id="frameInfo">
+      <h2>Frame</h2>
+      <canvas id="slotBars" height="160"></canvas>
+      <div class="caption"><span><span style="color:var(--rec)">■</span> recording <span style="color:var(--good)">■</span> model <span style="color:var(--ay)">■</span> rendered</span><span>harmonic slots k·f0, dB</span></div>
+      <div id="frameText" class="mono"></div>
+    </div>
+  </section>
+  <section>
+    <div class="panel">
+      <h2>Match</h2>
+      <div class="row">
+        <span class="seg" id="mode"><button data-v="match" class="on" title="Any channel can be anything; fit the harmonic levels">Free match</button><button data-v="speech" title="LPC formants: A near F1, B near F2, C free; noise only when unvoiced; voicing from low/high energy; pitch 60-400 Hz smoothed">Speech</button></span>
+      </div>
+      <div class="row">
+        <label><input id="chA" type="checkbox" checked> A</label>
+        <label><input id="chB" type="checkbox" checked> B</label>
+        <label><input id="chC" type="checkbox" checked> C</label>
+      </div>
+      <div class="row">
+        <label><input id="bare" type="checkbox" checked> bare buzz</label>
+        <label><input id="fixed" type="checkbox" checked> fixed squares</label>
+        <label><input id="noise" type="checkbox" checked> noise</label>
+      </div>
+      <div class="slider"><span>Gate (dB)</span><input id="gateDb" type="range" min="6" max="60" step="1" value="19" title="Updates this far below the loudest are silent (60: off). Set it between the background and the voice; 19 suits the film-line test clip."><output></output></div>
+      <div class="slider"><span>Denoise</span><input id="denoise" type="range" min="0" max="6" step="0.5" value="4" title="Background removal: subtract this many times the background's spectrum (0: off). 4 suits the film-line test clip; use 0 on clean recordings."><output></output></div>
+      <div class="slider"><span>Consonants (dB)</span><input id="consonantDb" type="range" min="0" max="12" step="1" value="0" title="Boost above 1.5 kHz in unvoiced frames before matching (0: off)"><output></output></div>
+      <div class="slider"><span>Sharpen</span><input id="sharpen" type="range" min="0" max="1" step="0.1" value="0" title="Formant sharpening of the target (0: off; 0.5 is typical)"><output></output></div>
+      <div class="slider"><span>Smoothness</span><input id="smooth" type="range" min="0" max="60" step="1" value="0"><output></output></div>
+      <div class="slider"><span>Level (dB)</span><input id="levelDb" type="range" min="-12" max="12" step="1" value="0"><output></output></div>
+      <div class="slider"><span>Silence floor</span><input id="floorDb" type="range" min="20" max="70" step="1" value="50"><output></output></div>
+      <div class="slider"><span>Range (dB)</span><input id="rangeDb" type="range" min="10" max="60" step="1" value="30"><output></output></div>
+      <div class="slider"><span>Top (Hz)</span><input id="fTop" type="range" min="2000" max="8000" step="250" value="6000"><output></output></div>
+      <div class="slider"><span>Voicing</span><input id="voicing" type="range" min="0.05" max="0.6" step="0.01" value="0.3"><output></output></div>
+      <div class="slider"><span>Lowest pitch</span><input id="fmin" type="range" min="50" max="300" step="5" value="70"><output></output></div>
+      <div class="slider"><span>Highest pitch</span><input id="fmax" type="range" min="200" max="1200" step="10" value="1000"><output></output></div>
+      <p class="dirty-note" id="dirtyNote" hidden>Settings changed since the last match: press Regenerate.</p>
+      <p class="hint">Changes apply when you press Match / Regenerate. Pitch, voicing, the gate, preprocessing, the seconds and the update rate also re-analyse. Preprocessing changes only the target: the score is always against the recording.</p>
+    </div>
+    <div class="panel">
+      <h2>Result</h2>
+      <div class="stats" id="stats"></div>
+      <div class="row" style="margin-top:10px">
+        <button id="saveFrames" disabled>Save frames.json</button>
+        <button id="saveWav" disabled>Save AY .wav</button>
+        <button id="saveSeq" disabled title="The recording, then the AY version, in one file">Save A→B .wav</button>
+        <button id="saveBin" disabled title="14 bytes an update, R0..R13 in order; R13 is $FF when it must not be written (writing it restarts the envelope)">Save registers .bin</button>
+      </div>
+      <p class="hint">Error: weighted dB difference in harmonic slots, measured on one 100 Hz grid for every rate. Pitch: the envelope period's nearest step to the sung pitch.</p>
+    </div>
+  </section>
+</main>
+<script src="vendor/ayumi.js"></script>
+<script src="js/core.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>

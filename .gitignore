@@ -1,0 +1,8 @@
+build/
+node_modules/
+*.wav
+*.mp3
+*.flac
+*.ogg
+!examples/*.wav
+!examples/ay/*.wav

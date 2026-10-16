@@ -1,0 +1,1415 @@
+{
+ "tool": "tools/vtx_speech/voice_matching/sweep.js",
+ "host": "Ayumi (no Vectrex)",
+ "metric": "STOI (Taal et al. 2011)",
+ "results": {
+  "film_line": {
+   "file": "film_line.wav",
+   "from": 0,
+   "to": 10,
+   "settings": {
+    "gateDb": 19
+   },
+   "rows": [
+    {
+     "config": "reference: noise vocoder 16 bands",
+     "stoi": 0.7768216009489146
+    },
+    {
+     "config": "reference: noise vocoder 8 bands",
+     "stoi": 0.6884006039804792
+    },
+    {
+     "config": "free denoise 4",
+     "stoi": 0.621873615825365,
+     "peakErrorDb": 7.352355986716001,
+     "f1": 0.11111111111111116,
+     "f2": 0.11290322580645151,
+     "writesPerSecond": 213.25503355704697,
+     "channelUse": {
+      "off": 7,
+      "env": 181,
+      "square": 539,
+      "noise": 170
+     },
+     "ms": 23923
+    },
+    {
+     "config": "reference: noise vocoder 4 bands",
+     "stoi": 0.6043443325715688
+    },
+    {
+     "config": "free denoise 2",
+     "stoi": 0.603586876178107,
+     "peakErrorDb": 6.618187946792191,
+     "f1": 0.1071428571428572,
+     "f2": 0.09243697478991586,
+     "writesPerSecond": 202.68456375838926,
+     "channelUse": {
+      "off": 0,
+      "env": 202,
+      "square": 482,
+      "noise": 213
+     },
+     "ms": 23326
+    },
+    {
+     "config": "free sharpen 0.5",
+     "stoi": 0.5776494203591517,
+     "peakErrorDb": 6.8737735447910415,
+     "f1": 0.06666666666666665,
+     "f2": 0.10169491525423724,
+     "writesPerSecond": 186.24161073825502,
+     "channelUse": {
+      "off": 0,
+      "env": 77,
+      "square": 595,
+      "noise": 225
+     },
+     "ms": 23844
+    },
+    {
+     "config": "free denoise 2 + consonants 6 + sharpen 0.5",
+     "stoi": 0.5522665923486488,
+     "peakErrorDb": 8.235694062479787,
+     "f1": 0.08571428571428574,
+     "f2": 0.07563025210084029,
+     "writesPerSecond": 211.74496644295303,
+     "channelUse": {
+      "off": 2,
+      "env": 95,
+      "square": 643,
+      "noise": 157
+     },
+     "ms": 20762
+    },
+    {
+     "config": "free smooth 0",
+     "stoi": 0.5498709336430999,
+     "peakErrorDb": 6.079002882429884,
+     "f1": 0.17241379310344818,
+     "f2": 0.17543859649122817,
+     "writesPerSecond": 177.8523489932886,
+     "channelUse": {
+      "off": 0,
+      "env": 166,
+      "square": 509,
+      "noise": 222
+     },
+     "ms": 22135
+    },
+    {
+     "config": "free",
+     "stoi": 0.5498709336430999,
+     "peakErrorDb": 6.079002882429884,
+     "f1": 0.17241379310344818,
+     "f2": 0.17543859649122817,
+     "writesPerSecond": 177.8523489932886,
+     "channelUse": {
+      "off": 0,
+      "env": 166,
+      "square": 509,
+      "noise": 222
+     },
+     "ms": 24391
+    },
+    {
+     "config": "free consonants 6",
+     "stoi": 0.5391823469566018,
+     "peakErrorDb": 6.596723381547248,
+     "f1": 0.15999999999999992,
+     "f2": 0.1293103448275862,
+     "writesPerSecond": 184.06040268456377,
+     "channelUse": {
+      "off": 0,
+      "env": 177,
+      "square": 476,
+      "noise": 244
+     },
+     "ms": 24133
+    },
+    {
+     "config": "free sharpen 1",
+     "stoi": 0.5371216435272609,
+     "peakErrorDb": 8.586482672517306,
+     "f1": 0.15555555555555556,
+     "f2": 0.16129032258064524,
+     "writesPerSecond": 198.15436241610738,
+     "channelUse": {
+      "off": 4,
+      "env": 102,
+      "square": 593,
+      "noise": 198
+     },
+     "ms": 22062
+    },
+    {
+     "config": "free consonants 12",
+     "stoi": 0.5367783092919682,
+     "peakErrorDb": 7.154090800487926,
+     "f1": 0.12903225806451624,
+     "f2": 0.07017543859649122,
+     "writesPerSecond": 190.93959731543623,
+     "channelUse": {
+      "off": 0,
+      "env": 145,
+      "square": 527,
+      "noise": 225
+     },
+     "ms": 23314
+    },
+    {
+     "config": "free 100 Hz",
+     "stoi": 0.5214186610442705,
+     "peakErrorDb": 6.40643762772504,
+     "f1": 0.08695652173913049,
+     "f2": 0.18055555555555558,
+     "writesPerSecond": 214.38127090301003,
+     "channelUse": {
+      "off": 96,
+      "env": 260,
+      "square": 883,
+      "noise": 558
+     },
+     "ms": 41797
+    },
+    {
+     "config": "free no bare buzz",
+     "stoi": 0.5192162613274797,
+     "peakErrorDb": 6.610333662620626,
+     "f1": 0.19999999999999996,
+     "f2": 0.11290322580645162,
+     "writesPerSecond": 120.30201342281879,
+     "channelUse": {
+      "off": 57,
+      "env": 138,
+      "square": 435,
+      "noise": 267
+     },
+     "ms": 22453
+    },
+    {
+     "config": "speech 200 Hz",
+     "stoi": 0.5165211920783971,
+     "peakErrorDb": 8.378437411357085,
+     "f1": 0.1428571428571429,
+     "f2": 0.11111111111111116,
+     "writesPerSecond": 162.9382303839733,
+     "channelUse": {
+      "off": 2511,
+      "env": 699,
+      "square": 178,
+      "noise": 209
+     },
+     "ms": 16046
+    },
+    {
+     "config": "speech consonants 6",
+     "stoi": 0.5136802218872484,
+     "peakErrorDb": 7.872984036814248,
+     "f1": 0.11538461538461542,
+     "f2": 0.0990099009900991,
+     "writesPerSecond": 127.68456375838926,
+     "channelUse": {
+      "off": 464,
+      "env": 200,
+      "square": 77,
+      "noise": 156
+     },
+     "ms": 5100
+    },
+    {
+     "config": "free range 40",
+     "stoi": 0.5038018562086011,
+     "peakErrorDb": 7.058864193692803,
+     "f1": 0.17142857142857149,
+     "f2": 0.22807017543859653,
+     "writesPerSecond": 116.2751677852349,
+     "channelUse": {
+      "off": 85,
+      "env": 131,
+      "square": 443,
+      "noise": 238
+     },
+     "ms": 21602
+    },
+    {
+     "config": "speech smooth 0",
+     "stoi": 0.503488578467809,
+     "peakErrorDb": 7.069892035641819,
+     "f1": 0.125,
+     "f2": 0.09433962264150941,
+     "writesPerSecond": 121.97986577181209,
+     "channelUse": {
+      "off": 429,
+      "env": 252,
+      "square": 96,
+      "noise": 120
+     },
+     "ms": 5550
+    },
+    {
+     "config": "speech",
+     "stoi": 0.503488578467809,
+     "peakErrorDb": 7.069892035641819,
+     "f1": 0.125,
+     "f2": 0.09433962264150941,
+     "writesPerSecond": 121.97986577181209,
+     "channelUse": {
+      "off": 429,
+      "env": 252,
+      "square": 96,
+      "noise": 120
+     },
+     "ms": 6551
+    },
+    {
+     "config": "free gate off",
+     "stoi": 0.4957255753454113,
+     "peakErrorDb": 6.529457495492463,
+     "f1": 0.11111111111111116,
+     "f2": 0.22988505747126442,
+     "writesPerSecond": 114.42953020134227,
+     "channelUse": {
+      "off": 79,
+      "env": 88,
+      "square": 457,
+      "noise": 273
+     },
+     "ms": 16683
+    },
+    {
+     "config": "speech 100 Hz",
+     "stoi": 0.49535555621352373,
+     "peakErrorDb": 6.965738297960315,
+     "f1": 0.13793103448275867,
+     "f2": 0.11475409836065575,
+     "writesPerSecond": 118.22742474916387,
+     "channelUse": {
+      "off": 1081,
+      "env": 472,
+      "square": 106,
+      "noise": 138
+     },
+     "ms": 10054
+    },
+    {
+     "config": "free no squares",
+     "stoi": 0.4935030290003523,
+     "peakErrorDb": 6.908225780022711,
+     "f1": 0.29166666666666674,
+     "f2": 0.28971962616822433,
+     "writesPerSecond": 97.48322147651007,
+     "channelUse": {
+      "off": 220,
+      "env": 75,
+      "square": 0,
+      "noise": 602
+     },
+     "ms": 2450
+    },
+    {
+     "config": "speech no squares",
+     "stoi": 0.48256291424234987,
+     "peakErrorDb": 7.389176475625212,
+     "f1": 0.16666666666666663,
+     "f2": 0.15068493150684936,
+     "writesPerSecond": 70.13422818791946,
+     "channelUse": {
+      "off": 569,
+      "env": 246,
+      "square": 0,
+      "noise": 82
+     },
+     "ms": 1451
+    },
+    {
+     "config": "free range 20",
+     "stoi": 0.4815648514821366,
+     "peakErrorDb": 6.808131065889371,
+     "f1": 0.2068965517241379,
+     "f2": 0.2622950819672132,
+     "writesPerSecond": 95.13422818791946,
+     "channelUse": {
+      "off": 148,
+      "env": 34,
+      "square": 412,
+      "noise": 303
+     },
+     "ms": 21277
+    },
+    {
+     "config": "free no auto level",
+     "stoi": 0.47940949719249815,
+     "peakErrorDb": 7.053960147996854,
+     "f1": 0.1875,
+     "f2": 0.27118644067796605,
+     "writesPerSecond": 104.19463087248322,
+     "channelUse": {
+      "off": 71,
+      "env": 32,
+      "square": 530,
+      "noise": 264
+     },
+     "ms": 6160
+    },
+    {
+     "config": "speech sharpen 0.5",
+     "stoi": 0.47702872208297126,
+     "peakErrorDb": 10.61141653078535,
+     "f1": 0.09375,
+     "f2": 0.08333333333333337,
+     "writesPerSecond": 92.61744966442953,
+     "channelUse": {
+      "off": 567,
+      "env": 210,
+      "square": 63,
+      "noise": 57
+     },
+     "ms": 4272
+    },
+    {
+     "config": "free smooth 25",
+     "stoi": 0.47392933192283915,
+     "peakErrorDb": 7.441452949332949,
+     "f1": 0.22857142857142865,
+     "f2": 0.24137931034482762,
+     "writesPerSecond": 83.38926174496645,
+     "channelUse": {
+      "off": 305,
+      "env": 45,
+      "square": 307,
+      "noise": 240
+     },
+     "ms": 21545
+    },
+    {
+     "config": "speech denoise 2",
+     "stoi": 0.4702069243667341,
+     "peakErrorDb": 7.8103165610420415,
+     "f1": 0.18421052631578938,
+     "f2": 0.06976744186046502,
+     "writesPerSecond": 115.93959731543623,
+     "channelUse": {
+      "off": 462,
+      "env": 234,
+      "square": 80,
+      "noise": 121
+     },
+     "ms": 5346
+    },
+    {
+     "config": "speech smooth 25",
+     "stoi": 0.46897278610221055,
+     "peakErrorDb": 7.434387074413998,
+     "f1": 0.1875,
+     "f2": 0.09615384615384626,
+     "writesPerSecond": 66.94630872483222,
+     "channelUse": {
+      "off": 565,
+      "env": 205,
+      "square": 45,
+      "noise": 82
+     },
+     "ms": 5438
+    },
+    {
+     "config": "speech denoise 2 + consonants 6 + sharpen 0.5",
+     "stoi": 0.4515318608049947,
+     "peakErrorDb": 11.13364829669968,
+     "f1": 0.10526315789473684,
+     "f2": 0.1428571428571428,
+     "writesPerSecond": 101.00671140939596,
+     "channelUse": {
+      "off": 532,
+      "env": 166,
+      "square": 80,
+      "noise": 119
+     },
+     "ms": 3968
+    },
+    {
+     "config": "speech no C",
+     "stoi": 0.4506484108324594,
+     "peakErrorDb": 7.377433474504059,
+     "f1": 0.19999999999999996,
+     "f2": 0.09375,
+     "writesPerSecond": 61.57718120805369,
+     "channelUse": {
+      "off": 604,
+      "env": 182,
+      "square": 37,
+      "noise": 74
+     },
+     "ms": 2232
+    },
+    {
+     "config": "speech no noise",
+     "stoi": 0.4082769507955559,
+     "peakErrorDb": 11.247505264306618,
+     "f1": 0.1428571428571429,
+     "f2": 0.08928571428571419,
+     "writesPerSecond": 67.28187919463086,
+     "channelUse": {
+      "off": 574,
+      "env": 248,
+      "square": 75,
+      "noise": 0
+     },
+     "ms": 5391
+    },
+    {
+     "config": "speech gate off",
+     "stoi": 0.3399207819607525,
+     "peakErrorDb": 7.393143541375917,
+     "f1": 0.06896551724137934,
+     "f2": 0.21794871794871795,
+     "writesPerSecond": 83.89261744966443,
+     "channelUse": {
+      "off": 248,
+      "env": 448,
+      "square": 78,
+      "noise": 123
+     },
+     "ms": 8344
+    },
+    {
+     "config": "free no noise",
+     "stoi": 0.306278646115843,
+     "peakErrorDb": 8.304925456722751,
+     "f1": 0.29166666666666674,
+     "f2": 0.17647058823529416,
+     "writesPerSecond": 73.8255033557047,
+     "channelUse": {
+      "off": 1,
+      "env": 517,
+      "square": 379,
+      "noise": 0
+     },
+     "ms": 20041
+    }
+   ]
+  },
+  "singing": {
+   "file": "singing.wav",
+   "from": 0,
+   "to": 10,
+   "settings": {
+    "gateDb": 40
+   },
+   "rows": [
+    {
+     "config": "reference: noise vocoder 16 bands",
+     "stoi": 0.7646180085525647
+    },
+    {
+     "config": "reference: noise vocoder 8 bands",
+     "stoi": 0.68336447197771
+    },
+    {
+     "config": "free denoise 2",
+     "stoi": 0.6427930937988406,
+     "peakErrorDb": 5.796302130871448,
+     "f1": 0.19999999999999996,
+     "f2": 0.125,
+     "writesPerSecond": 200.4008016032064,
+     "channelUse": {
+      "off": 104,
+      "env": 235,
+      "square": 1043,
+      "noise": 118
+     },
+     "ms": 12742
+    },
+    {
+     "config": "free consonants 6",
+     "stoi": 0.6413538746514309,
+     "peakErrorDb": 6.0543288815479235,
+     "f1": 0.18181818181818188,
+     "f2": 0.1367521367521367,
+     "writesPerSecond": 196.7935871743487,
+     "channelUse": {
+      "off": 88,
+      "env": 269,
+      "square": 1012,
+      "noise": 131
+     },
+     "ms": 12567
+    },
+    {
+     "config": "free range 40",
+     "stoi": 0.6344033893440072,
+     "peakErrorDb": 5.955151934759045,
+     "f1": 0.19047619047619047,
+     "f2": 0.1717171717171717,
+     "writesPerSecond": 139.8797595190381,
+     "channelUse": {
+      "off": 109,
+      "env": 118,
+      "square": 992,
+      "noise": 281
+     },
+     "ms": 12717
+    },
+    {
+     "config": "free denoise 4",
+     "stoi": 0.6325378892975938,
+     "peakErrorDb": 5.946842450296574,
+     "f1": 0.1578947368421053,
+     "f2": 0.13888888888888884,
+     "writesPerSecond": 200.80160320641284,
+     "channelUse": {
+      "off": 105,
+      "env": 272,
+      "square": 1021,
+      "noise": 102
+     },
+     "ms": 12719
+    },
+    {
+     "config": "free gate off",
+     "stoi": 0.6312224048740241,
+     "peakErrorDb": 6.07919129909417,
+     "f1": 0.22857142857142865,
+     "f2": 0.1842105263157895,
+     "writesPerSecond": 139.97995991983967,
+     "channelUse": {
+      "off": 105,
+      "env": 171,
+      "square": 960,
+      "noise": 264
+     },
+     "ms": 12599
+    },
+    {
+     "config": "free 100 Hz",
+     "stoi": 0.6306816928167991,
+     "peakErrorDb": 5.631441079211397,
+     "f1": 0.19047619047619047,
+     "f2": 0.19387755102040827,
+     "writesPerSecond": 204.9049049049049,
+     "channelUse": {
+      "off": 219,
+      "env": 303,
+      "square": 1675,
+      "noise": 803
+     },
+     "ms": 22730
+    },
+    {
+     "config": "free",
+     "stoi": 0.6237099248214082,
+     "peakErrorDb": 5.832897900114441,
+     "f1": 0.23809523809523814,
+     "f2": 0.1351351351351351,
+     "writesPerSecond": 198.99799599198397,
+     "channelUse": {
+      "off": 87,
+      "env": 246,
+      "square": 1022,
+      "noise": 145
+     },
+     "ms": 13020
+    },
+    {
+     "config": "free smooth 0",
+     "stoi": 0.6237099248214082,
+     "peakErrorDb": 5.832897900114441,
+     "f1": 0.23809523809523814,
+     "f2": 0.1351351351351351,
+     "writesPerSecond": 198.99799599198397,
+     "channelUse": {
+      "off": 87,
+      "env": 246,
+      "square": 1022,
+      "noise": 145
+     },
+     "ms": 12334
+    },
+    {
+     "config": "free consonants 12",
+     "stoi": 0.6145474273747541,
+     "peakErrorDb": 6.815762077275798,
+     "f1": 0.22580645161290325,
+     "f2": 0.12941176470588234,
+     "writesPerSecond": 190.3807615230461,
+     "channelUse": {
+      "off": 95,
+      "env": 210,
+      "square": 1056,
+      "noise": 139
+     },
+     "ms": 12485
+    },
+    {
+     "config": "free no noise",
+     "stoi": 0.611435865826724,
+     "peakErrorDb": 6.598418577090227,
+     "f1": 0.18181818181818188,
+     "f2": 0.18421052631578938,
+     "writesPerSecond": 133.56713426853707,
+     "channelUse": {
+      "off": 76,
+      "env": 267,
+      "square": 1157,
+      "noise": 0
+     },
+     "ms": 11292
+    },
+    {
+     "config": "free no bare buzz",
+     "stoi": 0.6085878637161689,
+     "peakErrorDb": 6.116883403473257,
+     "f1": 0.25,
+     "f2": 0.22857142857142854,
+     "writesPerSecond": 139.17835671342684,
+     "channelUse": {
+      "off": 104,
+      "env": 156,
+      "square": 968,
+      "noise": 272
+     },
+     "ms": 12457
+    },
+    {
+     "config": "free no auto level",
+     "stoi": 0.6018301952375648,
+     "peakErrorDb": 6.434339917492246,
+     "f1": 0.17142857142857149,
+     "f2": 0.2696629213483146,
+     "writesPerSecond": 133.16633266533066,
+     "channelUse": {
+      "off": 141,
+      "env": 133,
+      "square": 936,
+      "noise": 290
+     },
+     "ms": 4681
+    },
+    {
+     "config": "free range 20",
+     "stoi": 0.5972644782524676,
+     "peakErrorDb": 6.547613544897937,
+     "f1": 0.1428571428571428,
+     "f2": 0.23300970873786397,
+     "writesPerSecond": 125.35070140280563,
+     "channelUse": {
+      "off": 155,
+      "env": 166,
+      "square": 906,
+      "noise": 273
+     },
+     "ms": 12502
+    },
+    {
+     "config": "reference: noise vocoder 4 bands",
+     "stoi": 0.5945044298107126
+    },
+    {
+     "config": "free sharpen 0.5",
+     "stoi": 0.5937088056545008,
+     "peakErrorDb": 7.461307349758436,
+     "f1": 0.1212121212121211,
+     "f2": 0.14583333333333326,
+     "writesPerSecond": 207.41482965931866,
+     "channelUse": {
+      "off": 82,
+      "env": 190,
+      "square": 1134,
+      "noise": 94
+     },
+     "ms": 12964
+    },
+    {
+     "config": "free sharpen 1",
+     "stoi": 0.5928705652997057,
+     "peakErrorDb": 9.110053125887864,
+     "f1": 0.1428571428571428,
+     "f2": 0.1428571428571428,
+     "writesPerSecond": 206.41282565130263,
+     "channelUse": {
+      "off": 82,
+      "env": 156,
+      "square": 1154,
+      "noise": 108
+     },
+     "ms": 12689
+    },
+    {
+     "config": "speech smooth 0",
+     "stoi": 0.5865938164900418,
+     "peakErrorDb": 6.963729432686307,
+     "f1": 0.1428571428571428,
+     "f2": 0.1351351351351351,
+     "writesPerSecond": 171.0420841683367,
+     "channelUse": {
+      "off": 261,
+      "env": 445,
+      "square": 694,
+      "noise": 100
+     },
+     "ms": 5451
+    },
+    {
+     "config": "speech",
+     "stoi": 0.5865938164900418,
+     "peakErrorDb": 6.963729432686307,
+     "f1": 0.1428571428571428,
+     "f2": 0.1351351351351351,
+     "writesPerSecond": 171.0420841683367,
+     "channelUse": {
+      "off": 261,
+      "env": 445,
+      "square": 694,
+      "noise": 100
+     },
+     "ms": 5400
+    },
+    {
+     "config": "speech 100 Hz",
+     "stoi": 0.5826749879005882,
+     "peakErrorDb": 6.668130771892934,
+     "f1": 0.1470588235294118,
+     "f2": 0.1351351351351351,
+     "writesPerSecond": 156.95695695695696,
+     "channelUse": {
+      "off": 879,
+      "env": 903,
+      "square": 1098,
+      "noise": 120
+     },
+     "ms": 9292
+    },
+    {
+     "config": "speech consonants 6",
+     "stoi": 0.5796356368327569,
+     "peakErrorDb": 7.228187621681575,
+     "f1": 0.12903225806451613,
+     "f2": 0.12658227848101267,
+     "writesPerSecond": 168.93787575150301,
+     "channelUse": {
+      "off": 261,
+      "env": 439,
+      "square": 684,
+      "noise": 116
+     },
+     "ms": 5951
+    },
+    {
+     "config": "free denoise 2 + consonants 6 + sharpen 0.5",
+     "stoi": 0.5725780888802844,
+     "peakErrorDb": 7.997220768494712,
+     "f1": 0.125,
+     "f2": 0.1367521367521367,
+     "writesPerSecond": 210.12024048096194,
+     "channelUse": {
+      "off": 83,
+      "env": 208,
+      "square": 1122,
+      "noise": 87
+     },
+     "ms": 12853
+    },
+    {
+     "config": "free smooth 25",
+     "stoi": 0.5690697687741189,
+     "peakErrorDb": 6.469633735409859,
+     "f1": 0.23529411764705888,
+     "f2": 0.22580645161290325,
+     "writesPerSecond": 125.55110220440882,
+     "channelUse": {
+      "off": 170,
+      "env": 128,
+      "square": 763,
+      "noise": 439
+     },
+     "ms": 12464
+    },
+    {
+     "config": "speech 200 Hz",
+     "stoi": 0.5670869219441066,
+     "peakErrorDb": 6.742094413911372,
+     "f1": 0.16666666666666663,
+     "f2": 0.16470588235294126,
+     "writesPerSecond": 210.40520260130066,
+     "channelUse": {
+      "off": 1645,
+      "env": 1902,
+      "square": 2159,
+      "noise": 294
+     },
+     "ms": 16403
+    },
+    {
+     "config": "speech denoise 2",
+     "stoi": 0.5656477744667894,
+     "peakErrorDb": 7.118989257675551,
+     "f1": 0.1578947368421053,
+     "f2": 0.11827956989247312,
+     "writesPerSecond": 162.8256513026052,
+     "channelUse": {
+      "off": 309,
+      "env": 430,
+      "square": 648,
+      "noise": 113
+     },
+     "ms": 5916
+    },
+    {
+     "config": "speech sharpen 0.5",
+     "stoi": 0.5617248640271175,
+     "peakErrorDb": 8.014087964189441,
+     "f1": 0.13157894736842102,
+     "f2": 0.10869565217391308,
+     "writesPerSecond": 175.95190380761522,
+     "channelUse": {
+      "off": 302,
+      "env": 293,
+      "square": 830,
+      "noise": 75
+     },
+     "ms": 5849
+    },
+    {
+     "config": "speech gate off",
+     "stoi": 0.5569790397424723,
+     "peakErrorDb": 7.166822933816701,
+     "f1": 0.16279069767441856,
+     "f2": 0.1473684210526316,
+     "writesPerSecond": 105.51102204408818,
+     "channelUse": {
+      "off": 355,
+      "env": 488,
+      "square": 554,
+      "noise": 103
+     },
+     "ms": 5541
+    },
+    {
+     "config": "speech denoise 2 + consonants 6 + sharpen 0.5",
+     "stoi": 0.542761926577311,
+     "peakErrorDb": 8.425992055797286,
+     "f1": 0.11363636363636354,
+     "f2": 0.10447761194029859,
+     "writesPerSecond": 181.66332665330663,
+     "channelUse": {
+      "off": 269,
+      "env": 276,
+      "square": 837,
+      "noise": 118
+     },
+     "ms": 5680
+    },
+    {
+     "config": "free no squares",
+     "stoi": 0.5341907685358696,
+     "peakErrorDb": 7.222327869065525,
+     "f1": 0.34615384615384626,
+     "f2": 0.2321428571428572,
+     "writesPerSecond": 73.34669338677354,
+     "channelUse": {
+      "off": 742,
+      "env": 305,
+      "square": 0,
+      "noise": 453
+     },
+     "ms": 2765
+    },
+    {
+     "config": "speech no noise",
+     "stoi": 0.5323620059776132,
+     "peakErrorDb": 8.352788759414475,
+     "f1": 0.15625,
+     "f2": 0.15662650602409633,
+     "writesPerSecond": 97.1943887775551,
+     "channelUse": {
+      "off": 507,
+      "env": 490,
+      "square": 503,
+      "noise": 0
+     },
+     "ms": 5588
+    },
+    {
+     "config": "speech smooth 25",
+     "stoi": 0.5235227665042672,
+     "peakErrorDb": 7.540043969682979,
+     "f1": 0.1707317073170731,
+     "f2": 0.17999999999999994,
+     "writesPerSecond": 93.3867735470942,
+     "channelUse": {
+      "off": 513,
+      "env": 395,
+      "square": 524,
+      "noise": 68
+     },
+     "ms": 5313
+    },
+    {
+     "config": "speech no squares",
+     "stoi": 0.5081801372717155,
+     "peakErrorDb": 8.106048099124,
+     "f1": 0.33333333333333337,
+     "f2": 0.17808219178082196,
+     "writesPerSecond": 64.92985971943888,
+     "channelUse": {
+      "off": 629,
+      "env": 815,
+      "square": 0,
+      "noise": 56
+     },
+     "ms": 2076
+    },
+    {
+     "config": "speech no C",
+     "stoi": 0.49432959087659895,
+     "peakErrorDb": 8.026774198075175,
+     "f1": 0.22857142857142865,
+     "f2": 0.12844036697247707,
+     "writesPerSecond": 75.85170340681363,
+     "channelUse": {
+      "off": 779,
+      "env": 455,
+      "square": 210,
+      "noise": 56
+     },
+     "ms": 2683
+    }
+   ]
+  },
+  "game_voice_1": {
+   "file": "game_voice_1.wav",
+   "from": 0,
+   "to": 10,
+   "settings": {
+    "gateDb": 60
+   },
+   "rows": [
+    {
+     "config": "reference: noise vocoder 16 bands",
+     "stoi": 0.6147210323281666
+    },
+    {
+     "config": "reference: noise vocoder 8 bands",
+     "stoi": 0.5211583914660606
+    },
+    {
+     "config": "free denoise 4",
+     "stoi": 0.4804770132569308,
+     "peakErrorDb": 9.873394881903439,
+     "f1": 0.04166666666666663,
+     "f2": 0.13953488372093026,
+     "writesPerSecond": 236.51877133105802,
+     "channelUse": {
+      "off": 3,
+      "env": 132,
+      "square": 599,
+      "noise": 148
+     },
+     "ms": 9495
+    },
+    {
+     "config": "free denoise 2",
+     "stoi": 0.4537647194671938,
+     "peakErrorDb": 7.739489991200088,
+     "f1": 0.0625,
+     "f2": 0.1917808219178082,
+     "writesPerSecond": 234.47098976109214,
+     "channelUse": {
+      "off": 0,
+      "env": 220,
+      "square": 497,
+      "noise": 165
+     },
+     "ms": 9444
+    },
+    {
+     "config": "reference: noise vocoder 4 bands",
+     "stoi": 0.42526214996685074
+    },
+    {
+     "config": "free denoise 2 + consonants 6 + sharpen 0.5",
+     "stoi": 0.42064346004774394,
+     "peakErrorDb": 7.009701838813437,
+     "f1": 0.06896551724137934,
+     "f2": 0.17948717948717952,
+     "writesPerSecond": 238.05460750853246,
+     "channelUse": {
+      "off": 1,
+      "env": 261,
+      "square": 561,
+      "noise": 59
+     },
+     "ms": 8330
+    },
+    {
+     "config": "free consonants 6",
+     "stoi": 0.39018612980936856,
+     "peakErrorDb": 6.349153195281565,
+     "f1": 0.1428571428571428,
+     "f2": 0.14942528735632188,
+     "writesPerSecond": 200.34129692832764,
+     "channelUse": {
+      "off": 0,
+      "env": 361,
+      "square": 337,
+      "noise": 184
+     },
+     "ms": 11500
+    },
+    {
+     "config": "free sharpen 0.5",
+     "stoi": 0.3854445391649078,
+     "peakErrorDb": 6.308479802120407,
+     "f1": 0.06666666666666665,
+     "f2": 0.2727272727272727,
+     "writesPerSecond": 195.90443686006827,
+     "channelUse": {
+      "off": 0,
+      "env": 416,
+      "square": 398,
+      "noise": 68
+     },
+     "ms": 9841
+    },
+    {
+     "config": "free",
+     "stoi": 0.3823504802124054,
+     "peakErrorDb": 6.2339472485124645,
+     "f1": 0.10416666666666663,
+     "f2": 0.12371134020618557,
+     "writesPerSecond": 201.02389078498294,
+     "channelUse": {
+      "off": 0,
+      "env": 432,
+      "square": 301,
+      "noise": 149
+     },
+     "ms": 11571
+    },
+    {
+     "config": "free consonants 12",
+     "stoi": 0.3677804436552897,
+     "peakErrorDb": 6.802383328228749,
+     "f1": 0.1071428571428572,
+     "f2": 0.22093023255813948,
+     "writesPerSecond": 219.11262798634814,
+     "channelUse": {
+      "off": 0,
+      "env": 258,
+      "square": 422,
+      "noise": 202
+     },
+     "ms": 11367
+    },
+    {
+     "config": "speech denoise 2",
+     "stoi": 0.3661318089989925,
+     "peakErrorDb": 7.589834544509258,
+     "f1": 0.125,
+     "f2": 0.13592233009708743,
+     "writesPerSecond": 227.3037542662116,
+     "channelUse": {
+      "off": 89,
+      "env": 373,
+      "square": 229,
+      "noise": 191
+     },
+     "ms": 3981
+    },
+    {
+     "config": "free sharpen 1",
+     "stoi": 0.36304862884295386,
+     "peakErrorDb": 7.090582710566113,
+     "f1": 0.06896551724137934,
+     "f2": 0.1910112359550562,
+     "writesPerSecond": 224.74402730375425,
+     "channelUse": {
+      "off": 0,
+      "env": 286,
+      "square": 522,
+      "noise": 74
+     },
+     "ms": 10374
+    },
+    {
+     "config": "speech",
+     "stoi": 0.33997358856352566,
+     "peakErrorDb": 6.724403598963552,
+     "f1": 0.09090909090909083,
+     "f2": 0.14414414414414423,
+     "writesPerSecond": 218.08873720136518,
+     "channelUse": {
+      "off": 71,
+      "env": 427,
+      "square": 232,
+      "noise": 152
+     },
+     "ms": 4096
+    },
+    {
+     "config": "speech denoise 2 + consonants 6 + sharpen 0.5",
+     "stoi": 0.3358921325721945,
+     "peakErrorDb": 7.209619794438763,
+     "f1": 0.11111111111111116,
+     "f2": 0.20192307692307687,
+     "writesPerSecond": 224.91467576791808,
+     "channelUse": {
+      "off": 99,
+      "env": 250,
+      "square": 246,
+      "noise": 287
+     },
+     "ms": 3455
+    },
+    {
+     "config": "speech consonants 6",
+     "stoi": 0.3156185897960289,
+     "peakErrorDb": 7.129708693200801,
+     "f1": 0.13888888888888884,
+     "f2": 0.16216216216216206,
+     "writesPerSecond": 207.679180887372,
+     "channelUse": {
+      "off": 92,
+      "env": 357,
+      "square": 219,
+      "noise": 214
+     },
+     "ms": 3561
+    },
+    {
+     "config": "speech sharpen 0.5",
+     "stoi": 0.3051536886713449,
+     "peakErrorDb": 6.976456369333328,
+     "f1": 0.10000000000000009,
+     "f2": 0.13414634146341464,
+     "writesPerSecond": 229.18088737201364,
+     "channelUse": {
+      "off": 62,
+      "env": 411,
+      "square": 305,
+      "noise": 104
+     },
+     "ms": 4392
+    }
+   ]
+  },
+  "game_voice_2": {
+   "file": "game_voice_2.wav",
+   "from": 0,
+   "to": 10,
+   "settings": {
+    "gateDb": 60
+   },
+   "rows": [
+    {
+     "config": "reference: noise vocoder 16 bands",
+     "stoi": 0.7216892434912205
+    },
+    {
+     "config": "free",
+     "stoi": 0.6857639096180866,
+     "peakErrorDb": 5.074262924936548,
+     "f1": 0.20833333333333326,
+     "f2": 0.14130434782608692,
+     "writesPerSecond": 246.37681159420288,
+     "channelUse": {
+      "off": 1,
+      "env": 69,
+      "square": 286,
+      "noise": 61
+     },
+     "ms": 4972
+    },
+    {
+     "config": "free denoise 2",
+     "stoi": 0.6793367380758685,
+     "peakErrorDb": 5.566594357419415,
+     "f1": 0.20833333333333326,
+     "f2": 0.14035087719298245,
+     "writesPerSecond": 271.0144927536232,
+     "channelUse": {
+      "off": 8,
+      "env": 72,
+      "square": 283,
+      "noise": 54
+     },
+     "ms": 4929
+    },
+    {
+     "config": "free consonants 6",
+     "stoi": 0.6710370908986568,
+     "peakErrorDb": 5.234443707482248,
+     "f1": 0.19999999999999996,
+     "f2": 0.15000000000000002,
+     "writesPerSecond": 250,
+     "channelUse": {
+      "off": 1,
+      "env": 88,
+      "square": 280,
+      "noise": 48
+     },
+     "ms": 4906
+    },
+    {
+     "config": "free consonants 12",
+     "stoi": 0.6425646496031051,
+     "peakErrorDb": 5.251738227627694,
+     "f1": 0.19999999999999996,
+     "f2": 0.13186813186813184,
+     "writesPerSecond": 252.53623188405797,
+     "channelUse": {
+      "off": 1,
+      "env": 78,
+      "square": 286,
+      "noise": 52
+     },
+     "ms": 4937
+    },
+    {
+     "config": "free denoise 4",
+     "stoi": 0.6388412953538222,
+     "peakErrorDb": 6.375426675344195,
+     "f1": 0.22222222222222232,
+     "f2": 0.15384615384615385,
+     "writesPerSecond": 270.28985507246375,
+     "channelUse": {
+      "off": 29,
+      "env": 95,
+      "square": 264,
+      "noise": 29
+     },
+     "ms": 4833
+    },
+    {
+     "config": "reference: noise vocoder 8 bands",
+     "stoi": 0.6358448953189341
+    },
+    {
+     "config": "free sharpen 1",
+     "stoi": 0.6066177899948004,
+     "peakErrorDb": 8.350553638223381,
+     "f1": 0.15384615384615374,
+     "f2": 0.140625,
+     "writesPerSecond": 246.0144927536232,
+     "channelUse": {
+      "off": 0,
+      "env": 49,
+      "square": 356,
+      "noise": 12
+     },
+     "ms": 4983
+    },
+    {
+     "config": "free sharpen 0.5",
+     "stoi": 0.5688719356998918,
+     "peakErrorDb": 7.0761571691514895,
+     "f1": 0.1578947368421053,
+     "f2": 0.16666666666666663,
+     "writesPerSecond": 252.17391304347828,
+     "channelUse": {
+      "off": 2,
+      "env": 45,
+      "square": 366,
+      "noise": 4
+     },
+     "ms": 5247
+    },
+    {
+     "config": "reference: noise vocoder 4 bands",
+     "stoi": 0.5629575601814615
+    },
+    {
+     "config": "free denoise 2 + consonants 6 + sharpen 0.5",
+     "stoi": 0.5556309601773668,
+     "peakErrorDb": 7.295876833323494,
+     "f1": 0.16666666666666674,
+     "f2": 0.15315315315315314,
+     "writesPerSecond": 278.6231884057971,
+     "channelUse": {
+      "off": 12,
+      "env": 44,
+      "square": 340,
+      "noise": 21
+     },
+     "ms": 4046
+    },
+    {
+     "config": "speech",
+     "stoi": 0.5368720511079998,
+     "peakErrorDb": 6.1050590617340275,
+     "f1": 0.18181818181818188,
+     "f2": 0.10344827586206895,
+     "writesPerSecond": 245.28985507246378,
+     "channelUse": {
+      "off": 28,
+      "env": 152,
+      "square": 237,
+      "noise": 0
+     },
+     "ms": 2614
+    },
+    {
+     "config": "speech consonants 6",
+     "stoi": 0.5258605812124325,
+     "peakErrorDb": 6.160861661723358,
+     "f1": 0.19999999999999996,
+     "f2": 0.1071428571428571,
+     "writesPerSecond": 252.53623188405797,
+     "channelUse": {
+      "off": 39,
+      "env": 151,
+      "square": 227,
+      "noise": 0
+     },
+     "ms": 2536
+    },
+    {
+     "config": "speech denoise 2",
+     "stoi": 0.522512425216136,
+     "peakErrorDb": 6.528626446328464,
+     "f1": 0.19999999999999996,
+     "f2": 0.1428571428571428,
+     "writesPerSecond": 241.66666666666666,
+     "channelUse": {
+      "off": 57,
+      "env": 155,
+      "square": 194,
+      "noise": 11
+     },
+     "ms": 2135
+    },
+    {
+     "config": "speech sharpen 0.5",
+     "stoi": 0.49277585446516525,
+     "peakErrorDb": 7.801139097541445,
+     "f1": 0.1333333333333333,
+     "f2": 0.15662650602409633,
+     "writesPerSecond": 248.91304347826087,
+     "channelUse": {
+      "off": 46,
+      "env": 88,
+      "square": 283,
+      "noise": 0
+     },
+     "ms": 2432
+    },
+    {
+     "config": "speech denoise 2 + consonants 6 + sharpen 0.5",
+     "stoi": 0.4805539298989474,
+     "peakErrorDb": 8.079871996204364,
+     "f1": 0.11764705882352944,
+     "f2": 0.13095238095238093,
+     "writesPerSecond": 244.56521739130434,
+     "channelUse": {
+      "off": 51,
+      "env": 106,
+      "square": 247,
+      "noise": 13
+     },
+     "ms": 2103
+    }
+   ]
+  }
+ }
+}

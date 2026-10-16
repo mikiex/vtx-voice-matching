@@ -1,0 +1,8 @@
+{
+ "folder": "C:/path/to/your/clips",
+ "clips": {
+  "speech": { "file": "a-spoken-line-over-music.wav", "from": 0, "to": 10, "base": { "gateDb": 19, "denoise": 4 }, "speech": { "fmax": 400 } },
+  "singing": { "file": "a-cappella-singing.wav", "from": 0, "to": 10, "base": { "gateDb": 40 }, "speech": { "fmax": 1000 } },
+  "clean": { "file": "a-clean-game-voice.wav", "from": 0, "to": 10, "base": { "gateDb": 60 }, "speech": { "fmax": 400 } }
+ }
+}

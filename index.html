@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VTX Voice Matching</title>
+<meta name="description" content="An experiment: make an AY-3-8910 sound chip imitate a recording of a voice, one register update per 50 Hz frame, using its envelope as the voice's buzz. Runs in the browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Cpath d=%22M1 8h2l1-5 2 10 2-8 2 6 1-3h4%22 fill=%22none%22 stroke=%22%23eb6834%22 stroke-width=%221.6%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/site.css">
+<style>
+  .cta { display: inline-block; margin: 8px 12px 0 0; padding: 10px 18px; border-radius: 8px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 600; }
+  .cta.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
+  .tablewrap { overflow-x: auto; }
+  table.listen audio { width: 210px; max-width: 100%; height: 34px; }
+  table.listen td { vertical-align: middle; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.ref td { color: var(--muted); }
+  tr.best td { font-weight: 600; }
+  ol.steps li { margin: 6px 0; }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#">VTX Voice Matching</a>
+  <nav>
+    <a href="tool.html">Open the tool</a>
+    <a href="#listen">Listen</a>
+    <a href="#how">How it works</a>
+    <a href="#measure">Measuring</a>
+    <a href="#results">Results</a>
+    <a href="#cleaning">Cleaning audio</a>
+    <a href="#rate">Update rate</a>
+    <a href="#playback">Playback</a>
+    <a href="#others">Other projects</a>
+    <a href="#next">Next</a>
+    <a href="#credits">Credits</a>
+  </nav>
+</header>
+
+<main>
+<section class="hero">
+  <h1>Making an AY chip imitate a voice</h1>
+  <p class="lede">This is an experiment that follows on from <a href="https://mikiex.github.io/vtx-speech/">VTX Speech</a>. That project builds speech from text: words become phonemes, and phonemes become AY register settings using the chip's envelope as the buzz of a voice. Here the starting point is a recording instead. For every 50th of a second, the tool searches for the AY register settings that sound closest to the recording, then plays the result through an AY emulator so you can compare.</p>
+  <p class="dim">Everything runs in your browser. Load a WAV file, record your own voice or try the examples; nothing is uploaded. There is no cartridge or Spectrum player yet: the output is register data, checked only in emulation.</p>
+  <a class="cta" href="tool.html">Open the tool</a>
+  <a class="cta secondary" href="https://github.com/mikiex/vtx-voice-matching">Source on GitHub</a>
+</section>
+
+<section id="listen" class="prose">
+  <h2>Listen</h2>
+  <p>The openings of four public-domain LibriVox readings (clean recordings, four different voices), each beside the AY version made from it: 50 updates a second on a Vectrex's AY clock, free search, no gate or denoise. The tool's <i>example</i> menu loads them.</p>
+  <div class="tablewrap">
+  <table class="listen">
+    <tr><th>Reading</th><th>Original</th><th>AY, 50 Hz</th><th class="num">AY STOI</th><th class="num">4-band vocoder</th><th class="num">8-band vocoder</th></tr>
+    <tr><td><b>“Kearney at Seven Pines”</b><br><span class="dim">Edmund Clarence Stedman; read for LibriVox; voice about 200 Hz</span></td><td><audio controls preload="none" src="examples/librivox_kearney_at_seven_pines.wav"></audio></td><td><audio controls preload="none" src="examples/ay/librivox_kearney_at_seven_pines_ay.wav"></audio></td><td class="num"><b>0.771</b></td><td class="num">0.693</td><td class="num">0.757</td></tr>
+    <tr><td><b>The Gettysburg Address</b><br><span class="dim">Abraham Lincoln; read by John Greenman for LibriVox; about 120 Hz</span></td><td><audio controls preload="none" src="examples/gettysburg_address_opening.wav"></audio></td><td><audio controls preload="none" src="examples/ay/gettysburg_address_opening_ay.wav"></audio></td><td class="num"><b>0.727</b></td><td class="num">0.752</td><td class="num">0.808</td></tr>
+    <tr><td><b>John Adams to John Quincy Adams, 27 July 1777</b><br><span class="dim">read for LibriVox; about 170 Hz</span></td><td><audio controls preload="none" src="examples/librivox_adams_letter.wav"></audio></td><td><audio controls preload="none" src="examples/ay/librivox_adams_letter_ay.wav"></audio></td><td class="num"><b>0.689</b></td><td class="num">0.672</td><td class="num">0.776</td></tr>
+    <tr><td><b>“The Seven Ages of Man”</b><br><span class="dim">William Shakespeare; read for LibriVox; about 145 Hz</span></td><td><audio controls preload="none" src="examples/librivox_seven_ages_of_man.wav"></audio></td><td><audio controls preload="none" src="examples/ay/librivox_seven_ages_of_man_ay.wav"></audio></td><td class="num"><b>0.676</b></td><td class="num">0.685</td><td class="num">0.767</td></tr>
+  </table>
+  </div>
+  <p class="dim">The vocoder columns are the same readings through 4- and 8-band noise vocoders, for scale (section 2): the AY versions sit around the 4-band level, and the highest voice beats 8 bands. Noisy sources, such as the Apollo radio recordings, score far lower: they need cleaning first (section 4). Sources and licences are under Credits.</p>
+</section>
+
+<section id="how" class="prose">
+  <h2>1. How it works</h2>
+  <p>The AY-3-8910 has three square-wave channels, one noise source and one envelope generator. VTX Speech showed that the envelope, run as a fast sawtooth, makes a good voice buzz: it is rich in harmonics, like the vocal folds, and its pitch is set by the envelope period. Tones locked to exact harmonics of that buzz then shape it into vowels. Voice matching uses the same parts, but decides them from the recording, one update at a time:</p>
+  <ol class="steps">
+    <li><b>Pitch.</b> The recording's pitch is found for each update (the YIN method), and the envelope period is set to match: EP = clock ÷ (256 × pitch). Pitch follows the recording every update.</li>
+    <li><b>Harmonic slots.</b> The recording's energy is measured around each harmonic of that pitch, up to 6 kHz.</li>
+    <li><b>Candidates.</b> Each channel can be off; the envelope buzz with its tone off, or gated by a tone at harmonic <i>n</i> (tone period = 16 × EP ÷ <i>n</i>, so it stays locked to the buzz); a square at harmonic <i>n</i> at one of 15 fixed volumes; or noise at a fixed volume, with one noise period shared between channels.</li>
+    <li><b>Search.</b> The three channels are chosen together, to bring the AY's harmonic energies as close as possible to the recording's in decibels. The search fits each frame's peaks, as LPC speech coders do, and ignores slots more than 30 dB below the loudest. It also tries several overall levels, because the envelope only ever plays at full volume.</li>
+    <li><b>Render and measure.</b> The chosen registers are played through Ayumi, an accurate AY emulator, and the result is measured against the recording the same way.</li>
+  </ol>
+  <p>A second mode, <b>Speech</b>, adds speech-coder rules: LPC formants place channel A near the first formant and B near the second, quiet high-frequency frames become noise only, and voiced frames get no noise. It places formants more accurately, but it measures as less intelligible than the free search (section 3).</p>
+  <p>The tool also shows each update's harmonic energies (recording, model and rendered side by side) and its 14 register values, and exports them for a player.</p>
+</section>
+
+<section id="measure" class="prose">
+  <h2>2. Measuring intelligibility</h2>
+  <p>A small spectral error is not the same as speech you can understand, so every result is scored with <b>STOI</b> (short-time objective intelligibility, Taal et al., 2011). It is a standard measure of whether speech survives processing: it compares how the loudness of 15 frequency bands rises and falls over about 0.4 seconds in the original and the copy. It runs from 0 to 1, where 1 means identical.</p>
+  <p>To give the numbers a scale, the same clips are also put through <b>noise vocoders</b>. A noise vocoder keeps only the loudness of a few frequency bands and rebuilds the sound from noise. It is a standard way to simulate cochlear implants, and a few bands are known to be enough for much speech to be understood. They are references, not rivals: a vocoder controls many bands independently and updates over three times as often as 50 Hz.</p>
+  <p>Two cautions. STOI assumes its reference is clean, so measuring against a noisy recording penalises any cleaning (section 4). And it is not a listening test: the tool has an A/B button (the whole recording, then the whole AY version) for the final judgement.</p>
+</section>
+
+<section id="results" class="prose">
+  <h2>3. Results so far</h2>
+  <p>Four test recordings, none of which are included here: a spoken film line over a music bed, an a cappella singing clip, and two short game voice clips (8-bit, 22 and 11 kHz). All at 50 Hz with no smoothing between updates; gates set per clip.</p>
+  <div class="tablewrap">
+  <table>
+    <tr><th>STOI</th><th class="num">film line</th><th class="num">singing</th><th class="num">game voice 1</th><th class="num">game voice 2</th></tr>
+    <tr class="ref"><td>noise vocoder, 16 bands (reference)</td><td class="num">0.777</td><td class="num">0.765</td><td class="num">0.615</td><td class="num">0.722</td></tr>
+    <tr class="ref"><td>noise vocoder, 8 bands (reference)</td><td class="num">0.688</td><td class="num">0.683</td><td class="num">0.521</td><td class="num">0.636</td></tr>
+    <tr class="ref"><td>noise vocoder, 4 bands (reference)</td><td class="num">0.604</td><td class="num">0.595</td><td class="num">0.425</td><td class="num">0.563</td></tr>
+    <tr><td>AY, free search</td><td class="num">0.550</td><td class="num">0.624</td><td class="num">0.382</td><td class="num">0.686</td></tr>
+    <tr class="best"><td>AY, built-in denoise first (best of strength 2 or 4)</td><td class="num">0.622</td><td class="num">0.643</td><td class="num">0.480</td><td class="num">0.679</td></tr>
+    <tr><td>AY, speech mode</td><td class="num">0.503</td><td class="num">0.587</td><td class="num">0.340</td><td class="num">0.537</td></tr>
+  </table>
+  </div>
+  <ul>
+    <li><b>Noise carries speech.</b> In an earlier run (smoothing 10), taking noise away dropped the film line from 0.519 to 0.306 but the singing only from 0.632 to 0.611. Consonants are noise.</li>
+    <li><b>Free search beats the speech rules</b> on every clip, even though the speech rules place formants better. Forcing quiet frames to be all noise and voiced frames to have none costs more than it gains.</li>
+    <li><b>All three channels earn their place</b>, and so do the fixed-volume squares: without the squares the film line drops from 0.519 to 0.494 and the singing from 0.632 to 0.534 (smoothing 10); in speech mode, dropping channel C costs 0.03–0.07.</li>
+    <li><b>Fast changes help.</b> No smoothing between updates scored best on speech (0.550 against 0.519 at smoothing 10), at the cost of more register writes.</li>
+    <li><b>With cleaning, the AY passes the 4-band vocoder</b> on the noisy clips. The clean game voice already did.</li>
+  </ul>
+  <p class="dim">Full tables: <a href="results/sweep.json">results/sweep.json</a>, made by <code>tools/sweep.js</code>.</p>
+</section>
+
+<section id="cleaning" class="prose">
+  <h2>4. Clean the audio first</h2>
+  <p>Anything in the recording that is not the voice (music, room noise, hiss) is something the AY will try to imitate with its three channels. Removing it first helps more than any other setting tried.</p>
+  <p><b>Built-in denoise.</b> The tool can subtract the background's spectrum before matching. It estimates the background from the quietest tenth of the recording. On the film line it lifts STOI from 0.550 to 0.622, and on the noisier game voice from 0.382 to 0.480. On a clean recording it costs a little, so leave it at 0 there. A gate silences frames below a set level; it helps on top of denoise.</p>
+  <p><b>External speech enhancement does better.</b> Modern neural tools separate a voice from noise, music and reverb far better than spectral subtraction. As an example, one game clip was cleaned with NVIDIA's RE-USE speech enhancement before matching:</p>
+  <div class="tablewrap">
+  <table>
+    <tr><th>AY matched to</th><th class="num">STOI vs original</th><th class="num">STOI vs cleaned</th></tr>
+    <tr><td>the original</td><td class="num">0.382</td><td class="num">0.563</td></tr>
+    <tr><td>the original, built-in denoise</td><td class="num">0.480</td><td class="num">0.570</td></tr>
+    <tr class="best"><td>the RE-USE cleaned copy</td><td class="num">0.354</td><td class="num">0.725</td></tr>
+    <tr class="ref"><td>(the cleaned copy itself)</td><td class="num">0.522</td><td class="num">1</td></tr>
+  </table>
+  </div>
+  <p>Read the columns with care. The cleaned copy itself only scores 0.522 against the noisy original, because STOI counts the removed noise as an error. When a clean copy exists it is the better yardstick, and against it the AY version made from the cleaned copy is the best result so far. Each version naturally scores best against the file it was matched to, so listen to decide.</p>
+  <p>Other tools worth trying for the same job include DeepFilterNet (open-source noise suppression), Demucs (separating vocals from music) and Adobe Podcast's Enhance Speech. Clean the file, load it as the input, set denoise to 0, and use <i>score against</i> to compare with the original.</p>
+</section>
+
+<section id="rate" class="prose">
+  <h2>5. Is 50 Hz enough?</h2>
+  <p>One update per 50 Hz frame is what a game can afford: the register writes happen once per frame, between the drawing. Faster updates were measured to see what they would buy (free search, film line with its gate; a clean game clip):</p>
+  <div class="tablewrap">
+  <table>
+    <tr><th>updates a second</th><th class="num">film line STOI</th><th class="num">register writes a second</th><th class="num">clean clip STOI</th></tr>
+    <tr><td>50</td><td class="num">0.550</td><td class="num">178</td><td class="num">0.686</td></tr>
+    <tr><td>100</td><td class="num">0.558</td><td class="num">307</td><td class="num">0.652</td></tr>
+    <tr><td>200</td><td class="num">0.588</td><td class="num">514</td><td class="num">0.678</td></tr>
+    <tr><td>400</td><td class="num">0.611</td><td class="num">615</td><td class="num">0.697</td></tr>
+    <tr><td>800</td><td class="num">0.618</td><td class="num">819</td><td class="num">0.694</td></tr>
+  </table>
+  </div>
+  <p>The film line gains 0.06 by 400 Hz and then levels off; the clean clip shows no trend. Faster rates mean writing registers in the middle of a frame from a timer, and 3–5 times the data, so 50 Hz stays the target. Cleaning the audio gains more than any update rate.</p>
+</section>
+
+<section id="playback" class="prose">
+  <h2>6. Playing it back on a Vectrex or a Spectrum</h2>
+  <p>No player exists yet; this section is what one needs. The tool's output is a register stream: <b>Save registers .bin</b> writes 14 bytes per update, R0 to R13 in order. R13 (the envelope shape) is $FF when it must not be written, because writing it restarts the envelope; it is written once, when the buzz starts. A player only has to copy one 14-byte record to the AY every frame.</p>
+  <p><b>Match for the right machine.</b> Every period register depends on the chip's clock, so choose the machine in the tool before matching. The same file played on a machine with a different clock would come out at the wrong pitch.</p>
+  <div class="tablewrap">
+  <table>
+    <tr><th>Machine</th><th>AY clock</th><th>What the player does each frame</th></tr>
+    <tr><td>Vectrex</td><td>1.5 MHz</td><td>Copy the record into the BIOS sound buffer (<code>Vec_Music_Work</code>) and call <code>Do_Sound</code>, which writes the registers, once per <code>Wait_Recal</code>. VTX Speech's cartridge player already works this way.</td></tr>
+    <tr><td>ZX Spectrum 128, +2, +3</td><td>1.7734 MHz</td><td>In the 50 Hz interrupt, for each register: select it on port <code>$FFFD</code>, write the value on <code>$BFFD</code>. The 48K Spectrum has no AY.</td></tr>
+    <tr><td>Amstrad CPC</td><td>1 MHz</td><td>Writes go through the PPI, so each register costs more instructions; still small at 50 Hz.</td></tr>
+    <tr><td>MSX</td><td>1.79 MHz</td><td>As above through the PSG ports. 60 Hz machines would need matching at 60 updates a second, which the tool does not offer yet.</td></tr>
+    <tr><td>Atari ST</td><td>2 MHz (YM2149)</td><td>The YM's envelope has 32 steps; the model assumes the AY's 16, so expect small differences.</td></tr>
+  </table>
+  </div>
+  <p><b>Data size.</b> At 50 Hz the raw stream is 700 bytes a second, so a 32 KB cartridge holds about 45 seconds. Most registers do not change every update: storing a 2-byte mask of the changed registers plus their values takes 300–350 bytes a second on the test clips. A real format would compress further. The tool shows both figures for each match.</p>
+  <p><b>CPU time</b> is small: writing 14 registers is a few hundred cycles, a percent or two of a 50 Hz frame.</p>
+  <p class="dim">For the phoneme-based speech player, which stores words instead of frames and is much smaller, see <a href="https://mikiex.github.io/vtx-speech/">VTX Speech</a>.</p>
+</section>
+
+<section id="others" class="prose">
+  <h2>7. How it differs from other projects</h2>
+  <p><b><a href="https://github.com/nickbild/ay-3-8910">Nick Bild's AY-3-8910 speech synthesis</a></b> (2021, GPL-3.0) is the closest idea. He recorded every tone and noise setting the chip can make on one channel, without envelopes, then split the target speech (<i>"Greetings, Professor Falken"</i>) into 30 ms pieces. Each piece got the recorded sound whose spectrogram was closest (mean squared error), played from a Raspberry Pi; he describes the result as rough but distinguishable. Voice matching is the same "find the closest chip sound" approach, but with a much larger set of sounds to choose from:</p>
+  <ul>
+    <li>all three channels, chosen together, instead of one tone channel;</li>
+    <li>the envelope as a voice buzz at the speaker's own pitch, tracked every frame, which his library leaves out;</li>
+    <li>tones locked to exact harmonics of the buzz, so all three channels reinforce one pitch;</li>
+    <li>a search over register settings rather than a fixed library of recordings, and an intelligibility score to compare settings.</li>
+  </ul>
+  <p><b><a href="https://github.com/jarikomppa/audio2ay">audio2ay</a></b> by Jari Komppa (2025, zlib licence) converts audio to AY data with a short-time FFT, giving up to three tone channels the strongest peaks between 300 and 2,000 Hz, with an optional arpeggio on the last channel. It writes 2 bytes per channel per frame and comes with a ZX Spectrum player. Its author says speech does not really work with it; it is aimed at melodic sounds. Its documentation does not mention noise or the envelope, which section 3 shows matter most for speech.</p>
+  <p class="dim">Neither project has been run here, so their quality is described in their authors' own words, not measured with STOI.</p>
+</section>
+
+<section id="next" class="prose">
+  <h2>8. Limits and next steps</h2>
+  <ul>
+    <li><b>No player yet.</b> A Vectrex cartridge or a Spectrum program that streams the registers, then a check that the hardware sounds like Ayumi.</li>
+    <li><b>A compact format</b>, to fit more than seconds of speech.</li>
+    <li><b>More from the noise channel:</b> the envelope ANDed with noise for breathy and voiced sounds (z, v), and noise ANDed with a tone to shape fricatives (s against sh).</li>
+    <li><b>An extra update only where the sound changes fast</b> (consonant onsets), instead of a faster rate everywhere.</li>
+    <li><b>Planning a whole phrase at once</b> rather than frame by frame.</li>
+    <li>The model's own round trip (an AY sound, matched and replayed) comes back about 3 dB off, mostly because the phase between a tone and the envelope cannot be controlled on the chip.</li>
+  </ul>
+</section>
+
+<section id="credits" class="prose">
+  <h2>Credits and licences</h2>
+  <ul class="credits">
+    <li><b>Ayumi</b>, the AY-3-8910/YM2149 emulator used for every sound here: Peter Sovietov; JavaScript port by Alexander Kovalenko. MIT licence, included unmodified: <a href="vendor/ayumi.js">vendor/ayumi.js</a>, <a href="vendor/AYUMI_LICENSE">licence</a>.</li>
+    <li><b>STOI</b>: C. H. Taal, R. C. Hendriks, R. Heusdens and J. Jensen, "An algorithm for intelligibility prediction of time–frequency weighted noisy speech", <i>IEEE Transactions on Audio, Speech, and Language Processing</i> 19(7), 2011. Implemented from the paper.</li>
+    <li><b>YIN</b> pitch tracking: A. de Cheveigné and H. Kawahara, "YIN, a fundamental frequency estimator for speech and music", <i>JASA</i> 111(4), 2002.</li>
+    <li><b>Noise vocoders</b> as an intelligibility reference: R. V. Shannon et al., "Speech recognition with primarily temporal cues", <i>Science</i> 270, 1995.</li>
+    <li><b>Related projects</b>: Nick Bild's AY-3-8910 speech synthesis and Jari Komppa's audio2ay, as described above. No code from either is used.</li>
+    <li><b>Examples</b> (<code>examples/</code>): openings of LibriVox recordings, which LibriVox dedicates to the public domain, of public-domain texts. The Gettysburg Address (Abraham Lincoln) read by John Greenman (archive.org <i>gettysburg_johng_librivox</i>); "The Seven Ages of Man" (William Shakespeare), John Adams's letter to John Quincy Adams of 27 July 1777, and "Kearney at Seven Pines" (Edmund Clarence Stedman), read by LibriVox volunteers for the <i>7th Anniversary Collection</i> (archive.org <i>7th_anniversary_collection_1208_librivox</i>, sections 2, 3 and 8). Cut to 8–11 seconds and converted to WAV; <code>examples/ay/</code> holds this tool's output from them.</li>
+    <li><b>NVIDIA RE-USE</b> was used outside this project to clean one test clip. It is not included or required.</li>
+    <li>Voice matching grew out of VTX Speech, made for VTX, a language and toolchain for the Vectrex.</li>
+  </ul>
+  <p class="dim">VTX Voice Matching © 2026 Michael Simonds. MIT licence (<a href="LICENSE">LICENSE</a>); the files in <code>vendor/</code> keep their own licences. The only recordings included are the public-domain examples above.</p>
+</section>
+</main>
+</body>
+</html>
