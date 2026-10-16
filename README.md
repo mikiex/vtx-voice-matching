@@ -38,9 +38,11 @@ file. Changing settings marks the result out of date until you press
   CPC 1 MHz, MSX 1.79 MHz, Atari ST 2 MHz. Period registers depend on it.
 - **Free match / Speech**: search everything, or speech-coder rules (LPC
   formants guide A/B, noise only when unvoiced).
-- **Denoise**, **Gate**: clean up and silence a background. For better
-  results, clean the file first with a speech-enhancement tool (NVIDIA RE-USE,
-  DeepFilterNet, Demucs vocals, Adobe Podcast Enhance) and load that.
+- **Denoise**, **Gate**: clean up and silence a background. For noisy
+  recordings, clean the file first with
+  [NVIDIA RE-USE](https://huggingface.co/nvidia/RE-USE) (recommended; others:
+  DeepFilterNet, Demucs vocals, Adobe Podcast Enhance) and load that with
+  denoise 0 and gate 60.
 - **score against**: also score the AY version against a second recording
   of the same words (for example the original, before cleaning).
 - Saves: frames.json, the AY WAV, the A→B WAV, and **registers .bin**.

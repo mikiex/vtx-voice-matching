@@ -41,7 +41,7 @@
 <section class="hero">
   <h1>Making an AY chip imitate a voice</h1>
   <p class="lede">This is an experiment that follows on from <a href="https://mikiex.github.io/vtx-speech/">VTX Speech</a>. That project builds speech from text: words become phonemes, and phonemes become AY register settings using the chip's envelope as the buzz of a voice. Here the starting point is a recording instead. For every 50th of a second, the tool searches for the AY register settings that sound closest to the recording, then plays the result through an AY emulator so you can compare.</p>
-  <p class="dim">Everything runs in your browser. Load a WAV file, record your own voice or try the examples; nothing is uploaded. There is no cartridge or Spectrum player yet: the output is register data, checked only in emulation.</p>
+  <p class="dim">Everything runs in your browser. Load a WAV file, record your own voice or try the examples; nothing is uploaded. For noisy recordings, clean them first with <a href="https://huggingface.co/nvidia/RE-USE">NVIDIA RE-USE</a> (section 4). There is no cartridge or Spectrum player yet: the output is register data, checked only in emulation.</p>
   <a class="cta" href="tool.html">Open the tool</a>
   <a class="cta secondary" href="https://github.com/mikiex/vtx-voice-matching">Source on GitHub</a>
 </section>
@@ -58,7 +58,7 @@
     <tr><td><b>“The Seven Ages of Man”</b><br><span class="dim">William Shakespeare; read for LibriVox; about 145 Hz</span></td><td><audio controls preload="none" src="examples/librivox_seven_ages_of_man.wav"></audio></td><td><audio controls preload="none" src="examples/ay/librivox_seven_ages_of_man_ay.wav"></audio></td><td class="num"><b>0.676</b></td><td class="num">0.685</td><td class="num">0.767</td></tr>
   </table>
   </div>
-  <p class="dim">The vocoder columns are the same readings through 4- and 8-band noise vocoders, for scale (section 2): the AY versions sit around the 4-band level, and the highest voice beats 8 bands. Noisy sources, such as the Apollo radio recordings, score far lower: they need cleaning first (section 4). Sources and licences are under Credits.</p>
+  <p class="dim">The vocoder columns are the same readings through 4- and 8-band noise vocoders, for scale (section 2): the AY versions sit around the 4-band level, and the highest voice beats 8 bands. Noisy sources, such as the Apollo radio recordings, score far lower: clean them first, ideally with NVIDIA RE-USE (section 4). Sources and licences are under Credits.</p>
 </section>
 
 <section id="how" class="prose">
@@ -110,7 +110,7 @@
   <h2>4. Clean the audio first</h2>
   <p>Anything in the recording that is not the voice (music, room noise, hiss) is something the AY will try to imitate with its three channels. Removing it first helps more than any other setting tried.</p>
   <p><b>Built-in denoise.</b> The tool can subtract the background's spectrum before matching. It estimates the background from the quietest tenth of the recording. On the film line it lifts STOI from 0.550 to 0.622, and on the noisier game voice from 0.382 to 0.480. On a clean recording it costs a little, so leave it at 0 there. A gate silences frames below a set level; it helps on top of denoise.</p>
-  <p><b>External speech enhancement does better.</b> Modern neural tools separate a voice from noise, music and reverb far better than spectral subtraction. As an example, one game clip was cleaned with NVIDIA's RE-USE speech enhancement before matching:</p>
+  <p><b>Recommended: clean noisy recordings with <a href="https://huggingface.co/nvidia/RE-USE">NVIDIA RE-USE</a> first.</b> RE-USE is a universal speech-enhancement model: it repairs noise, reverberation, clipping, narrow bandwidth and codec damage while keeping the speaker's voice, and accepts recordings at 8 to 48 kHz. It runs on Hugging Face or on your own machine. Neural enhancement like this separates a voice from its background far better than the tool's spectral subtraction. One noisy game clip, matched before and after cleaning with RE-USE:</p>
   <div class="tablewrap">
   <table>
     <tr><th>AY matched to</th><th class="num">STOI vs original</th><th class="num">STOI vs cleaned</th></tr>
@@ -121,7 +121,7 @@
   </table>
   </div>
   <p>Read the columns with care. The cleaned copy itself only scores 0.522 against the noisy original, because STOI counts the removed noise as an error. When a clean copy exists it is the better yardstick, and against it the AY version made from the cleaned copy is the best result so far. Each version naturally scores best against the file it was matched to, so listen to decide.</p>
-  <p>Other tools worth trying for the same job include DeepFilterNet (open-source noise suppression), Demucs (separating vocals from music) and Adobe Podcast's Enhance Speech. Clean the file, load it as the input, set denoise to 0, and use <i>score against</i> to compare with the original.</p>
+  <p><b>How:</b> run the recording through RE-USE, load the cleaned file in the tool with denoise at 0 and the gate off (60), and use <i>score against</i> to compare with the original if you like. Other tools for the same job include DeepFilterNet (open-source noise suppression), Demucs (separating vocals from music) and Adobe Podcast's Enhance Speech. Clean recordings, such as the examples above, need no cleaning.</p>
 </section>
 
 <section id="rate" class="prose">
@@ -193,7 +193,7 @@
     <li><b>Noise vocoders</b> as an intelligibility reference: R. V. Shannon et al., "Speech recognition with primarily temporal cues", <i>Science</i> 270, 1995.</li>
     <li><b>Related projects</b>: Nick Bild's AY-3-8910 speech synthesis and Jari Komppa's audio2ay, as described above. No code from either is used.</li>
     <li><b>Examples</b> (<code>examples/</code>): openings of LibriVox recordings, which LibriVox dedicates to the public domain, of public-domain texts. The Gettysburg Address (Abraham Lincoln) read by John Greenman (archive.org <i>gettysburg_johng_librivox</i>); "The Seven Ages of Man" (William Shakespeare), John Adams's letter to John Quincy Adams of 27 July 1777, and "Kearney at Seven Pines" (Edmund Clarence Stedman), read by LibriVox volunteers for the <i>7th Anniversary Collection</i> (archive.org <i>7th_anniversary_collection_1208_librivox</i>, sections 2, 3 and 8). Cut to 8–11 seconds and converted to WAV; <code>examples/ay/</code> holds this tool's output from them.</li>
-    <li><b>NVIDIA RE-USE</b> was used outside this project to clean one test clip. It is not included or required.</li>
+    <li><b><a href="https://huggingface.co/nvidia/RE-USE">NVIDIA RE-USE</a></b> is recommended for cleaning noisy recordings first, and was used to clean one test clip. It is a separate model under its own licence, not included or required.</li>
     <li>Voice matching grew out of VTX Speech, made for VTX, a language and toolchain for the Vectrex.</li>
   </ul>
   <p class="dim">VTX Voice Matching © 2026 Michael Simonds. MIT licence (<a href="LICENSE">LICENSE</a>); the files in <code>vendor/</code> keep their own licences. The only recordings included are the public-domain examples above.</p>

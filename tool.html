@@ -124,6 +124,7 @@ canvas { width: 100%; display: block; border-radius: 6px; background: #000; imag
       <div class="slider"><span>Lowest pitch</span><input id="fmin" type="range" min="50" max="300" step="5" value="70"><output></output></div>
       <div class="slider"><span>Highest pitch</span><input id="fmax" type="range" min="200" max="1200" step="10" value="1000"><output></output></div>
       <p class="dirty-note" id="dirtyNote" hidden>Settings changed since the last match: press Regenerate.</p>
+      <p class="hint">Noisy recording? Clean it first with <a href="https://huggingface.co/nvidia/RE-USE" style="color:var(--ay)">NVIDIA RE-USE</a>, then load it here with denoise 0 and the gate at 60: it removes noise and reverb far better than Denoise.</p>
       <p class="hint">Changes apply when you press Match / Regenerate. Pitch, voicing, the gate, preprocessing, the seconds and the update rate also re-analyse. Preprocessing changes only the target: the score is always against the recording.</p>
     </div>
     <div class="panel">
