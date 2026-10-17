@@ -36,12 +36,16 @@ label { color: var(--dim); }
 canvas { width: 100%; display: block; border-radius: 6px; background: #000; image-rendering: pixelated; }
 #specRec, #specAy { height: 220px; }
 #lanes { height: 36px; background: transparent; }
+.playwrap { position: relative; }
+.playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 3px #000; pointer-events: none; }
+.playhead[hidden] { display: none; }
 #slotBars { height: 160px; background: transparent; }
 .caption { display: flex; justify-content: space-between; color: var(--dim); font-size: 12px; margin: 6px 0 2px; }
 .stats { display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px; font-variant-numeric: tabular-nums; }
 .stats div:nth-child(odd) { color: var(--dim); }
 .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
 #status { color: var(--dim); }
+#progress { width: 140px; accent-color: var(--accent); }
 #frameInfo table { border-collapse: collapse; width: 100%; }
 #frameInfo td { padding: 1px 4px; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
@@ -63,22 +67,23 @@ canvas { width: 100%; display: block; border-radius: 6px; background: #000; imag
     <option value="examples/twinkle_twinkle_sung.wav" data-gate="60" data-denoise="2">"Twinkle, Twinkle, Little Star", sung unaccompanied</option>
     <option value="examples/a_chantar_sung.wav" data-gate="60" data-denoise="0">"A chantar m'er", sung unaccompanied (high voice)</option>
   </select>
-  <input id="file" type="file" accept="audio/wav,.wav,audio/*">
+  <input id="file" type="file" title="A WAV file to match (any rate, mono or stereo, 8-32 bit or float). It stays in your browser." accept="audio/wav,.wav,audio/*">
   <button id="record" title="Record from the microphone (stays in your browser); press again to stop">● Record</button>
   <label title="Optional: a second recording of the same words (for example a cleaned-up copy) to score the AY against as well">score against <input id="refFile" type="file" accept="audio/wav,.wav,audio/*"></label>
   <button id="refClear" class="small" hidden title="Stop scoring against the second recording">×</button>
-  <button id="playRef" hidden>▶ Reference</button>
-  <label>from <input id="from" type="number" min="0" step="0.5" value="0"> s</label>
-  <label>to <input id="to" type="number" min="0.5" step="0.5" value="10"> s</label>
-  <button id="go" class="primary" disabled>Match</button>
+  <button id="playRef" hidden title="Play the second recording">▶ Reference</button>
+  <label title="Start of the part to match, in seconds into the recording">from <input id="from" type="number" min="0" step="0.5" value="0"> s</label>
+  <label title="End of the part to match, in seconds. Matching takes roughly 5 s of computing per second of sound at 50 Hz">to <input id="to" type="number" min="0.5" step="0.5" value="10"> s</label>
+  <button id="go" class="primary" disabled title="Analyse the recording and search the AY registers for every update with the settings on the right">Match</button>
   <label title="The AY clock of the target machine: it sets every period register">machine <select id="machine"></select></label>
-  <span class="seg" id="updates"><button data-v="50" class="on">50 Hz</button><button data-v="100">100 Hz</button><button data-v="200">200 Hz</button></span>
-  <button id="playRec" disabled>▶ Recording</button>
+  <span class="seg" id="updates" title="Register updates a second. 50 Hz is one per Vectrex frame (the target); 100 and 200 Hz need extra writes between frames"><button data-v="50" class="on">50 Hz</button><button data-v="100">100 Hz</button><button data-v="200">200 Hz</button></span>
+  <button id="playRec" disabled title="The chosen seconds of the recording, as loaded">▶ Recording</button>
   <button id="playTarget" disabled title="The processed sound the AY is matched to (with any preprocessing on)">▶ Target</button>
-  <button id="playAy" disabled>▶ AY</button>
+  <button id="playAy" disabled title="The AY version, rendered by Ayumi (an AY emulator) from the matched registers">▶ AY</button>
   <button id="playSeq" disabled title="The whole recording, half a second of silence, then the whole AY version (same peak level)">▶ A/B</button>
-  <button id="stop">■</button>
+  <button id="stop" title="Stop playing">■</button>
   <button id="theme" title="Light or dark">◐</button>
+  <progress id="progress" max="1" value="0" hidden title="Matching progress"></progress>
   <span id="status">Choose a WAV file.</span>
 </header>
 <main>
@@ -105,14 +110,14 @@ canvas { width: 100%; display: block; border-radius: 6px; background: #000; imag
         <span class="seg" id="mode"><button data-v="match" class="on" title="Any channel can be anything; fit the harmonic levels">Free match</button><button data-v="speech" title="LPC formants: A near F1, B near F2, C free; noise only when unvoiced; voicing from low/high energy; pitch 60-400 Hz smoothed">Speech</button></span>
       </div>
       <div class="row">
-        <label><input id="chA" type="checkbox" checked> A</label>
-        <label><input id="chB" type="checkbox" checked> B</label>
-        <label><input id="chC" type="checkbox" checked> C</label>
+        <label title="Let the search use channel A"><input id="chA" type="checkbox" checked> A</label>
+        <label title="Let the search use channel B"><input id="chB" type="checkbox" checked> B</label>
+        <label title="Let the search use channel C"><input id="chC" type="checkbox" checked> C</label>
       </div>
       <div class="row">
-        <label><input id="bare" type="checkbox" checked> bare buzz</label>
-        <label><input id="fixed" type="checkbox" checked> fixed squares</label>
-        <label><input id="noise" type="checkbox" checked> noise</label>
+        <label title="A channel may play the envelope sawtooth with its tone off: the voice's buzz, all harmonics of the pitch"><input id="bare" type="checkbox" checked> bare buzz</label>
+        <label title="A channel may play a square tone at a fixed volume (0-15) on one harmonic of the pitch: a formant peak"><input id="fixed" type="checkbox" checked> fixed squares</label>
+        <label title="A channel may play the noise generator: hiss for s, sh, f, t and breath"><input id="noise" type="checkbox" checked> noise</label>
         <label title="Square tones tuned to the recording's own pitch rather than to the envelope's rounded pitch: finer pitch steps, best for singing"><input id="exactSquares" type="checkbox" checked> exact squares</label>
         <label title="Noise ANDed with a 1-6 kHz tone: hiss moved up the spectrum, for consonants"><input id="noiseTone" type="checkbox" checked> noise × tone</label>
       </div>
@@ -120,17 +125,17 @@ canvas { width: 100%; display: block; border-radius: 6px; background: #000; imag
       <div class="slider"><span>Denoise</span><input id="denoise" type="range" min="0" max="6" step="0.5" value="4" title="Background removal: subtract this many times the background's spectrum (0: off). 4 suits the film-line test clip; use 0 on clean recordings."><output></output></div>
       <div class="slider"><span>Consonants (dB)</span><input id="consonantDb" type="range" min="0" max="12" step="1" value="0" title="Boost above 1.5 kHz in unvoiced frames before matching (0: off)"><output></output></div>
       <div class="slider"><span>Sharpen</span><input id="sharpen" type="range" min="0" max="1" step="0.1" value="0" title="Formant sharpening of the target (0: off; 0.5 is typical)"><output></output></div>
-      <div class="slider"><span>Noise trim</span><input id="noiseTrim" type="range" min="0" max="10" step="1" value="6" title="Volume steps taken off every noise channel after matching (0: none). Matching alone makes the hiss too strong: 6 by ear."><output></output></div>
-      <div class="slider"><span>Bright noise back</span><input id="brightNoiseBoost" type="range" min="0" max="10" step="1" value="4" title="Volume steps given back to the noise where the recording is bright (an s or sh), after the noise trim. 4 with trim 6: the s sounds 2 steps quieter than matched."><output></output></div>
+      <div class="slider"><span>Noise trim</span><input id="noiseTrim" type="range" min="0" max="10" step="1" value="2" title="Volume steps taken off every noise channel after matching (0: none). Matching alone makes the hiss too strong."><output></output></div>
+      <div class="slider"><span>Bright noise back</span><input id="brightNoiseBoost" type="range" min="0" max="10" step="1" value="2" title="Volume steps given back to the noise where the recording is bright (an s or sh), after the noise trim. Equal to the trim: s sounds stay as matched."><output></output></div>
       <div class="slider"><span>Overshoot</span><input id="overshoot" type="range" min="1" max="6" step="0.5" value="1" title="How much more an AY sound louder than the recording counts than one quieter (1: the same). Higher: less added brightness and hiss."><output></output></div>
-      <div class="slider"><span>Smoothness</span><input id="smooth" type="range" min="0" max="60" step="1" value="0"><output></output></div>
-      <div class="slider"><span>Level (dB)</span><input id="levelDb" type="range" min="-12" max="12" step="1" value="0"><output></output></div>
-      <div class="slider"><span>Silence floor</span><input id="floorDb" type="range" min="20" max="70" step="1" value="50"><output></output></div>
-      <div class="slider"><span>Range (dB)</span><input id="rangeDb" type="range" min="10" max="60" step="1" value="30"><output></output></div>
-      <div class="slider"><span>Top (Hz)</span><input id="fTop" type="range" min="2000" max="8000" step="250" value="6000"><output></output></div>
-      <div class="slider"><span>Voicing</span><input id="voicing" type="range" min="0.05" max="0.6" step="0.01" value="0.3"><output></output></div>
-      <div class="slider"><span>Lowest pitch</span><input id="fmin" type="range" min="50" max="300" step="5" value="70"><output></output></div>
-      <div class="slider"><span>Highest pitch</span><input id="fmax" type="range" min="200" max="1200" step="10" value="1000"><output></output></div>
+      <div class="slider" title="Penalty for changing a channel's sound, harmonic or volume from one update to the next (0: none). Higher: steadier, fewer register writes, less exact. 0 scored best for speech."><span>Smoothness</span><input id="smooth" type="range" min="0" max="60" step="1" value="0"><output></output></div>
+      <div class="slider" title="Trim on top of the automatic level (dB). The envelope buzz only plays at full volume, so the recording's level decides what the AY can match; the search picks the best level, this nudges it."><span>Level (dB)</span><input id="levelDb" type="range" min="-12" max="12" step="1" value="0"><output></output></div>
+      <div class="slider" title="Harmonic slots this far below the AY's full buzz count as silence, so the search does not chase very quiet detail (dB)."><span>Silence floor</span><input id="floorDb" type="range" min="20" max="70" step="1" value="50"><output></output></div>
+      <div class="slider" title="Within each update, slots this far below its loudest are not fitted (dB). Lower: fit only the peaks, as LPC does."><span>Range (dB)</span><input id="rangeDb" type="range" min="10" max="60" step="1" value="30"><output></output></div>
+      <div class="slider" title="The highest frequency compared (Hz). Above it the AY's sound is not judged; s sounds reach 5-9 kHz."><span>Top (Hz)</span><input id="fTop" type="range" min="2000" max="8000" step="250" value="6000"><output></output></div>
+      <div class="slider" title="Pitch detector strictness (YIN clarity): an update is voiced (buzz) when its clarity is below this. Higher: more updates voiced, fewer turn to noise."><span>Voicing</span><input id="voicing" type="range" min="0.05" max="0.6" step="0.01" value="0.3"><output></output></div>
+      <div class="slider" title="Lowest pitch the detector looks for (Hz). Raise it if a low voice's pitch jumps an octave down."><span>Lowest pitch</span><input id="fmin" type="range" min="50" max="300" step="5" value="70"><output></output></div>
+      <div class="slider" title="Highest pitch the detector looks for (Hz). About 400 for speech, 1000 for singing."><span>Highest pitch</span><input id="fmax" type="range" min="200" max="1200" step="10" value="1000"><output></output></div>
       <p class="dirty-note" id="dirtyNote" hidden>Settings changed since the last match: press Regenerate.</p>
       <p class="hint">Noisy recording? Clean it first with <a href="https://huggingface.co/nvidia/RE-USE" style="color:var(--ay)">NVIDIA RE-USE</a>, then load it here with denoise 0 and the gate at 60: it removes noise and reverb far better than Denoise.</p>
       <p class="hint">Changes apply when you press Match / Regenerate. Pitch, voicing, the gate, preprocessing, the seconds and the update rate also re-analyse. Preprocessing changes only the target: the score is always against the recording.</p>
@@ -139,8 +144,8 @@ canvas { width: 100%; display: block; border-radius: 6px; background: #000; imag
       <h2>Result</h2>
       <div class="stats" id="stats"></div>
       <div class="row" style="margin-top:10px">
-        <button id="saveFrames" disabled>Save frames.json</button>
-        <button id="saveWav" disabled>Save AY .wav</button>
+        <button id="saveFrames" disabled title="Every update's analysis and chosen AY state as JSON, for inspecting or other tools">Save frames.json</button>
+        <button id="saveWav" disabled title="The AY version as a WAV file">Save AY .wav</button>
         <button id="saveSeq" disabled title="The recording, then the AY version, in one file">Save A→B .wav</button>
         <button id="saveBin" disabled title="14 bytes an update, R0..R13 in order; R13 is $FF when it must not be written (writing it restarts the envelope)">Save registers .bin</button>
       </div>

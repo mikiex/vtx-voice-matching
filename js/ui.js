@@ -127,17 +127,45 @@
 
   // ---------------------------------------------------------- matching
 
+  // Each stage is timed (S.timing, ms; shown under Result) so the slow parts
+  // can be found. Matching runs in slices with a progress bar.
+  const paint = () => new Promise((r) => setTimeout(r, 0));
   async function run() {
-    if (!S.bytes) return;
-    status("working…");
-    await new Promise((r) => setTimeout(r, 20));
+    if (!S.bytes || S.running) return;
+    S.running = true;
+    $("go").disabled = true;
+    $("progress").hidden = false;
+    $("progress").value = 0;
+    status("loading…");
+    await paint();
     try {
-      const c = await clip(), o = options(), t0 = performance.now();
+      const timing = {}, t0 = performance.now();
+      let t = t0;
+      const lap = (name) => { const now = performance.now(); timing[name] = (timing[name] || 0) + now - t; t = now; };
+      const c = await clip(), o = options();
+      lap("load");
       S.options = o;
       const key = [c.from, c.to, o.updates, ...analysisKeys.map((k) => o[k])].join();
-      if (key !== S.analysisKey) { S.analysis = VM.analyse(c.samples, c.rate, o); S.analysisKey = key; S.specRec = VM.spectrogram(c.samples, c.rate); }
-      S.result = VM.match(S.analysis, o);
+      if (key !== S.analysisKey) {
+        status("analysing…");
+        await paint();
+        t = performance.now();
+        S.analysis = VM.analyse(c.samples, c.rate, o); S.analysisKey = key; S.specRec = VM.spectrogram(c.samples, c.rate);
+        lap("analyse");
+      } else timing.analyse = 0;                       // kept from the last match
+      const seconds = c.samples.length / c.rate, tm = performance.now();
+      S.result = await VM.matchAsync(S.analysis, o, (f) => {
+        const spent = (performance.now() - tm) / 1000;
+        $("progress").value = f;
+        status(`matching… ${Math.round(100 * f)}%, ${spent.toFixed(1)} s` + (f > 0.05 && f < 1 ? `, about ${Math.ceil(spent * (1 - f) / f)} s left` : ""));
+      });
+      t = tm;
+      lap("match");
+      status("rendering and scoring…");
+      await paint();
+      t = performance.now();
       S.rendered = VM.render(S.result.regs, c.rate, Ayumi, S.result.updates, S.result.clock);
+      lap("render");
       S.measured = VM.evaluate(S.analysis, S.result, S.rendered, c.samples);
       S.ref = null;
       if (S.refBytes) {
@@ -146,18 +174,30 @@
         S.measured.refStoi = VM.stoi(S.ref, S.rendered, c.rate);
         S.measured.inputVsRef = VM.stoi(S.ref, c.samples, c.rate);
       }
+      lap("score");
       $("playRef").hidden = !S.ref;
       S.specAy = VM.spectrogram(S.rendered, c.rate);
+      lap("spectrogram");
       S.frame = Math.min(S.frame, S.result.frames.length - 1);
       ["playRec", "playAy", "playSeq", "saveFrames", "saveWav", "saveSeq", "saveBin"].forEach((id) => { $(id).disabled = false; });
       $("playTarget").disabled = !S.analysis.target;
       setDirty(false);
       $("go").textContent = "Regenerate";
+      lap("other");
       draw();
-      status(`${S.result.frames.length} updates in ${Math.round(performance.now() - t0)} ms`);
+      lap("draw");
+      timing.total = performance.now() - t0;
+      timing.seconds = seconds;
+      S.timing = timing;
+      drawStats();
+      status(`${S.result.frames.length} updates in ${(timing.total / 1000).toFixed(1)} s (${(timing.total / 1000 / seconds).toFixed(1)} s per second of sound)`);
     } catch (e) {
       status(`error: ${e.message}`);
       console.error(e);
+    } finally {
+      S.running = false;
+      $("go").disabled = false;
+      $("progress").hidden = true;
     }
   }
   $("go").onclick = run;
@@ -297,6 +337,9 @@
       ["Register writes", `${s.writesPerFrame.toFixed(2)} per update`],
       ["Data", `${Math.round(s.bytesPerSecond.raw)} bytes/s raw (14 an update), ${Math.round(s.bytesPerSecond.changes)} bytes/s as changes (2-byte mask + changed registers)`],
       ["Channel use", `env ${s.channelUse.env} · square ${s.channelUse.square} · noise ${s.channelUse.noise} · off ${s.channelUse.off}`],
+      ...(S.timing ? [["Time", `${(S.timing.total / 1000).toFixed(1)} s (${(S.timing.total / 1000 / S.timing.seconds).toFixed(1)} s per second of sound)`],
+        ...["load", "analyse", "match", "render", "score", "spectrogram", "draw", "other"].map((k) =>
+          [`  ${k}`, `${Math.round(S.timing[k] || 0)} ms (${Math.round(100 * (S.timing[k] || 0) / S.timing.total)}%)` + (k === "analyse" && !S.timing[k] ? " (kept from the last match)" : "")])] : []),
     ];
     $("stats").innerHTML = rows.map(([a, b]) => `<div>${a}</div><div>${b}</div>`).join("");
   }
@@ -335,25 +378,56 @@
   }
   const peak = (x) => x.reduce((m, v) => Math.max(m, Math.abs(v)), 1e-6);
 
-  function play(samples) {
+  // Playback line: one over each spectrogram and the lanes, at the playing
+  // time. `where(seconds)` gives the place in the clip (0..1), or null to hide
+  // it (the A/B gap).
+  const heads = ["specRec", "specAy", "lanes"].map((id) => {
+    const c = $(id), wrap = document.createElement("div"), line = document.createElement("div");
+    wrap.className = "playwrap";
+    line.className = "playhead";
+    c.parentNode.insertBefore(wrap, c);
+    wrap.append(c, line);
+    return line;
+  });
+  let headFrame = 0;
+  const showHead = (x) => heads.forEach((h) => { h.hidden = x === null; if (x !== null) h.style.left = `${(100 * Math.min(1, Math.max(0, x))).toFixed(3)}%`; });
+  showHead(null);
+
+  function play(samples, where = (t) => t * S.clip.rate / samples.length) {
     stop();
     const ctx = context(), buf = ctx.createBuffer(1, samples.length, S.clip.rate), g = 0.9 / peak(samples);
     const d = buf.getChannelData(0);
     for (let i = 0; i < samples.length; i++) d[i] = samples[i] * g;
-    source = ctx.createBufferSource();
-    source.buffer = buf;
-    source.connect(ctx.destination);
-    source.start();
+    const src = ctx.createBufferSource();
+    source = src;
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.onended = () => { if (source === src) stop(); };
+    const t0 = ctx.currentTime + 0.01;
+    src.start(t0);
+    const tick = () => {
+      if (source !== src) return;
+      const t = ctx.currentTime - t0;
+      showHead(t < 0 ? 0 : where(t));
+      headFrame = requestAnimationFrame(tick);
+    };
+    tick();
   }
   function stop() {
     if (source) { try { source.stop(); } catch (e) { /* already stopped */ } source = null; }
     clearTimeout(timer);
+    cancelAnimationFrame(headFrame);
+    showHead(null);
   }
   $("playRec").onclick = () => play(S.clip.samples);
   $("playRef").onclick = () => S.ref && play(S.ref);
   $("playAy").onclick = () => play(S.rendered);
   $("playTarget").onclick = () => S.analysis.target && play(S.analysis.target);
-  $("playSeq").onclick = () => play(VM.abSequence(S.clip.samples, S.rendered, S.clip.rate));
+  $("playSeq").onclick = () => {
+    // The recording, half a second of silence, then the AY: the line runs twice.
+    const a = S.clip.samples.length / S.clip.rate, b = S.rendered.length / S.clip.rate;
+    play(VM.abSequence(S.clip.samples, S.rendered, S.clip.rate), (t) => (t < a ? t / a : t < a + 0.5 ? null : (t - a - 0.5) / b));
+  };
   $("stop").onclick = stop;
 
   // ------------------------------------------------------------ saving

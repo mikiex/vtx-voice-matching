@@ -113,10 +113,10 @@
     volumeHold: false,              // ignore +-1 volume steps on a channel keeping the same sound
     // Noise and brightness:
     overshoot: 1,                   // weight of errors where the AY is louder than the recording
-    noiseTrim: 6,                   // volume steps taken off every noise channel after the search (user, 17 October 2026)
+    noiseTrim: 2,                   // volume steps taken off every noise channel after the search (user, 17 October 2026)
     dullNoiseTrim: 0,               // volume steps off the noise where the recording is dull (tiltDb over dullTiltDb)
     dullTiltDb: 5,
-    brightNoiseBoost: 4,            // volume steps onto the noise where the recording is bright (tiltDb under brightTiltDb): "s" only 2 quieter
+    brightNoiseBoost: 2,            // volume steps onto the noise where the recording is bright (tiltDb under brightTiltDb): "s" as matched
     brightTiltDb: -15,
     energyVoicing: false,           // free mode: voiced also by energy balance; unpitched voiced updates borrow the nearest clear pitch
     exactSquares: true,             // squares tuned to the recording's pitch, not the rounded envelope pitch (default since 17 Oct 2026: never lost by ear, helps singing)
@@ -630,7 +630,30 @@
     return { ch: chs.split("|").map((t) => { if (t === "off") return { kind: "off", n: 0, v: 0 }; const [kind, n, v] = t.split(":"); return { kind, n: +n, v: +v }; }), np: np ? +np : 0 };
   }
 
+  // match() runs matchSteps() to the end; matchAsync() runs it in slices of
+  // about 100 ms, reporting the fraction done and letting a page repaint. The
+  // steps yield once per update searched (the search is nearly all the time).
   function match(analysis, options = {}) {
+    const steps = matchSteps(analysis, options);
+    let r;
+    while (!(r = steps.next()).done);
+    return r.value;
+  }
+
+  async function matchAsync(analysis, options = {}, onProgress = () => {}, sliceMs = 100) {
+    const steps = matchSteps(analysis, options);
+    let r, t = Date.now();
+    while (!(r = steps.next()).done) {
+      if (Date.now() - t < sliceMs) continue;
+      onProgress(r.value);
+      await new Promise((go) => setTimeout(go, 0));
+      t = Date.now();
+    }
+    onProgress(1);
+    return r.value;
+  }
+
+  function* matchSteps(analysis, options = {}) {
     const o = { ...analysis.options, ...options };
     setClock(o.clock || 1500000);
     // auto: one shape for the whole phrase (changing it restarts the envelope).
@@ -654,17 +677,22 @@
     // what the AY can match. Auto level: try -12..+12 dB on every fourth frame
     // and keep the best, then refine; levelDb trims the result.
     let auto = 0;
+    const sample = frames.map((_, i) => i).filter((i) => i % 4 === 0);
+    const passes = segments ? (o.segmentShapes || ["saw", "triangle"]).length : 1;
+    const progress = { done: 0, total: (o.autoLevel ? 11 * sample.length : 0) + passes * frames.length || 1 };
     if (o.autoLevel) {
-      const sample = frames.map((_, i) => i).filter((i) => i % 4 === 0);
       // The silence floor moves with the level, or quieter would always win.
-      const trial = (d) => search(analysis, o, start * Math.pow(10, d / 10), eps * Math.pow(10, d / 10), sample, true).reduce((s, f) => s + f.cost, 0);
+      const trial = function* (d) {
+        const r = yield* search(analysis, o, start * Math.pow(10, d / 10), eps * Math.pow(10, d / 10), sample, true, progress);
+        return r.reduce((s, f) => s + f.cost, 0);
+      };
       let best = Infinity;
-      for (let d = -12; d <= 12; d += 3) { const c = trial(d); if (c < best) { best = c; auto = d; } }
-      for (const d of [auto - 1.5, auto + 1.5]) { const c = trial(d); if (c < best) { best = c; auto = d; } }
+      for (let d = -12; d <= 12; d += 3) { const c = yield* trial(d); if (c < best) { best = c; auto = d; } }
+      for (const d of [auto - 1.5, auto + 1.5]) { const c = yield* trial(d); if (c < best) { best = c; auto = d; } }
     }
     const gain = start * Math.pow(10, (auto + o.levelDb) / 10), floor = eps * Math.pow(10, auto / 10);
     let out;
-    if (!segments) out = search(analysis, o, gain, floor, frames.map((_, i) => i), false);
+    if (!segments) out = yield* search(analysis, o, gain, floor, frames.map((_, i) => i), false, progress);
     else {
       // Per stretch: a gap in the voicing plus the voiced run after it. Each
       // stretch tries the sawtooth and the triangle and keeps the lower cost;
@@ -683,7 +711,7 @@
         let best = null;
         for (const sh of o.segmentShapes || ["saw", "triangle"]) {
           setShape(sh);
-          const r = search(analysis, o, gain, floor, seg, false), c = r.reduce((sum, f) => sum + f.cost, 0);
+          const r = yield* search(analysis, o, gain, floor, seg, false, progress), c = r.reduce((sum, f) => sum + f.cost, 0);
           if (!best || c < best.c) best = { c, r, code: sh === "triangle" ? 10 : 8 };
         }
         best.r.forEach((f, k) => { f.shapeCode = best.code; out[seg[k]] = f; });
@@ -722,7 +750,8 @@
   }
 
   // Matches the given frames in order. `quick`: no smoothing (frames apart).
-  function search(analysis, o, gain, eps, indices, quick) {
+  // A generator: yields the fraction of the whole match done, once an update.
+  function* search(analysis, o, gain, eps, indices, quick, progress = { done: 0, total: indices.length }) {
     const { frames, binHz } = analysis, usable = [0, 1, 2].filter((c) => o.channels[c]), smooth = quick ? 0 : o.smooth;
     const overshoot = o.overshoot || 1;
     const eps_ = [];                              // envelope period per frame: unvoiced frames keep the last
@@ -750,6 +779,7 @@
     const out = [];
     let prev = { ch: [OFF, OFF, OFF], np: 8 };
     for (const i of indices) {
+      yield ++progress.done / progress.total;
       const f = frames[i], ep = eps_[i] || firstEp;
       const f0q = pitchOf(ep), base = f.voiced ? f.f0 : f0q;
       const count = Math.max(1, Math.min(120, Math.floor(o.fTop / base)));
@@ -1323,6 +1353,6 @@
     return { cols, bins, db, hz: rate / size };
   }
 
-  return { get CLOCK() { return CLOCK; }, MACHINES, setClock, setShape, stateKey, keyToEntry, dump, FRAME_RATE, DEFAULTS, LEVEL, readWav, writeWav, analyse, match, render, evaluate, spectrogram, slots, epFor, pitchOf, tpFor,
+  return { get CLOCK() { return CLOCK; }, MACHINES, setClock, setShape, stateKey, keyToEntry, dump, FRAME_RATE, DEFAULTS, LEVEL, readWav, writeWav, analyse, match, matchAsync, render, evaluate, spectrogram, slots, epFor, pitchOf, tpFor,
     envTemplate, squareTemplate, noiseTemplate, noiseToneTemplate, ENV_MEAN_SQ, maxOf, stoi, fft, resample, preprocess, fitTo, abSequence, encodeStream, decodeStream, streamAsm };
 });
