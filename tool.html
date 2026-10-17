@@ -53,12 +53,15 @@ canvas { width: 100%; display: block; border-radius: 6px; background: #000; imag
 <body>
 <header>
   <h1><a href="./" style="color:inherit;text-decoration:none"><b>VTX</b> voice matching</a></h1>
-  <select id="example" title="Public-domain LibriVox readings (see the explainer's credits); each sets a suggested gate and denoise">
+  <select id="example" title="Public-domain and CC0 examples (see the explainer's credits); each sets a suggested gate and denoise">
     <option value="">example…</option>
     <option value="examples/librivox_kearney_at_seven_pines.wav" data-gate="60" data-denoise="0">"Kearney at Seven Pines", opening (LibriVox)</option>
     <option value="examples/gettysburg_address_opening.wav" data-gate="60" data-denoise="0">The Gettysburg Address, opening (LibriVox)</option>
     <option value="examples/librivox_adams_letter.wav" data-gate="60" data-denoise="0">John Adams's letter of 27 July 1777, opening (LibriVox)</option>
     <option value="examples/librivox_seven_ages_of_man.wav" data-gate="60" data-denoise="0">"The Seven Ages of Man", opening (LibriVox)</option>
+    <option value="examples/librivox_swiss_family_robinson.wav" data-gate="60" data-denoise="0">The Swiss Family Robinson, opening (LibriVox, deep voice)</option>
+    <option value="examples/twinkle_twinkle_sung.wav" data-gate="60" data-denoise="2">"Twinkle, Twinkle, Little Star", sung unaccompanied</option>
+    <option value="examples/a_chantar_sung.wav" data-gate="60" data-denoise="0">"A chantar m'er", sung unaccompanied (high voice)</option>
   </select>
   <input id="file" type="file" accept="audio/wav,.wav,audio/*">
   <button id="record" title="Record from the microphone (stays in your browser); press again to stop">● Record</button>

@@ -32,7 +32,7 @@
   (GPL-3.0).
 - Jari Komppa, audio2ay: <https://github.com/jarikomppa/audio2ay> (zlib).
 
-## Example recordings (`examples/`), all public domain
+## Example recordings (`examples/`): public domain and CC0
 
 LibriVox recordings are dedicated to the public domain, and the texts are
 public domain.
@@ -43,8 +43,21 @@ public domain.
 | `librivox_seven_ages_of_man.wav` | "The Seven Ages of Man" (William Shakespeare); LibriVox 7th Anniversary Collection, section 2; archive.org `7th_anniversary_collection_1208_librivox` | 0.5-11.0 s |
 | `librivox_adams_letter.wav` | John Adams to John Quincy Adams, 27 July 1777; same collection, section 3 | 0.7-11.4 s |
 | `librivox_kearney_at_seven_pines.wav` | "Kearney at Seven Pines" (Edmund Clarence Stedman); same collection, section 8 | 0.5-10.8 s |
+| `librivox_swiss_family_robinson.wav` | *The Swiss Family Robinson* (Johann David Wyss) read by Mark F. Smith; archive.org `swiss_family_robinson_librivox` | 1.1-11.1 s |
 
 All converted from MP3 to 16-bit mono WAV at 22,050 Hz with 50/100 ms fades.
+
+Singing: `twinkle_twinkle_sung.wav`, "Twinkle, Twinkle, Little Star" sung
+unaccompanied by Wikimedia Commons user Dcoetzee, released under CC0 1.0
+(`File:Twinkle_Twinkle_Little_Star_-_sung_with_full_lyrics.ogg`); the first
+two lines (0.30-9.25 s), converted from Ogg to 16-bit mono WAV at 22,050 Hz
+with 50/100 ms fades. The song itself is public domain.
+
+`a_chantar_sung.wav`: "A chantar m'er de so qu'eu no volria" (Comtessa de
+Dia, 12th century) sung unaccompanied, recorded by Wikimedia Commons user
+Makemi and released into the public domain (`File:A_Chantar2.ogg`); the first
+two phrases (1.4-12.3 s), converted from Ogg to 16-bit mono WAV at 22,050 Hz
+with 50/100 ms fades.
 `examples/ay/` holds this tool's output from them.
 
 ## Other recordings

@@ -21,8 +21,8 @@ Vectrex or Spectrum player exists yet.
 | Command line, sweep, core tests | Node 18+ |
 | Browser test | Node 22+ (built-in WebSocket) and Chrome or Edge |
 
-No packages to install and no build step. Four public-domain LibriVox
-readings are included as examples (`examples/`, see `NOTICE.md`); or bring
+No packages to install and no build step. Five public-domain LibriVox
+readings and two unaccompanied songs (CC0 and public domain) are included as examples (`examples/`, see `NOTICE.md`); or bring
 your own WAV files, or record in the browser.
 
 ## The tool
