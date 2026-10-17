@@ -10,8 +10,9 @@ emulator (Ayumi) and scored for intelligibility (STOI).
 Explainer and results: <https://mikiex.github.io/vtx-voice-matching/>.
 Tool: [`tool.html`](https://mikiex.github.io/vtx-voice-matching/tool.html).
 
-Status: host only. The output is a register stream checked in emulation; no
-Vectrex or Spectrum player exists yet.
+Status: experimental. The tool saves streams for a 6809 Vectrex player
+(`vectrex/`, checked update by update in MAME); no Spectrum player exists
+yet. Nobody has heard it on a real Vectrex.
 
 ## Requirements
 
@@ -48,7 +49,29 @@ file. Changing settings marks the result out of date until you press
   denoise 0 and gate 60.
 - **score against**: also score the AY version against a second recording
   of the same words (for example the original, before cleaning).
-- Saves: frames.json, the AY WAV, the A→B WAV, and **registers .bin**.
+- **Selecting a part**: drag across a spectrogram or the channel lanes. The
+  bar under them plays the part (recording, AY, A/B) and saves it as an AY
+  WAV or as a Vectrex stream (`.bin`, or `.asm` to include). A click still
+  inspects one frame; Esc clears the selection.
+- A white line follows playback; a progress bar shows matching; **Result**
+  times each stage. Every control has a tooltip.
+- Saves: frames.json, the AY WAV, the A→B WAV, **Vectrex .bin / .asm** (the
+  player's stream, see below; 50 Hz on machine Vectrex only), and
+  **registers .bin**.
+
+## Playing it on a Vectrex
+
+`vectrex/vtx_voice_player.asm` (AS09 syntax, 193 bytes, 4 bytes of RAM)
+plays the stream from **Save Vectrex .asm/.bin**: each 50 Hz update is a
+2-byte mask of the changed registers, then their values; `$80 $00` ends it.
+It fills the BIOS sound buffer, so call `VM_Service` then `Do_Sound` once a
+frame. `VM_Start` (X = stream), `VM_Busy` (Z = 1 when silent), `VM_Stop`.
+A saved part restarts the envelope on its first update. Speech is about
+250-350 bytes a second.
+
+`vectrex/voice_cart.asm` is a complete example cartridge: save the stream as
+`stream.asm` beside it, set `VOICE` to its label, and assemble. It plays the
+voice, waits a second, and repeats.
 
 ## Register stream (`registers.bin`)
 
@@ -89,6 +112,7 @@ node tools/sweep.js my_clips.json --record       # merges into results/sweep.jso
 | `tool.html`, `js/ui.js` | the tool |
 | `js/core.js` | analysis, matching, rendering, STOI, preprocessing (browser and Node) |
 | `tools/run.js`, `tools/sweep.js` | command line |
+| `vectrex/vtx_voice_player.asm`, `vectrex/voice_cart.asm` | the Vectrex player and an example cartridge |
 | `test/core.test.js` | WAV reading, round trip on a synthetic AY voice, STOI, low sample rates, preprocessing |
 | `test/browser.mjs` | the tool in headless Chrome (fake microphone included) |
 | `examples/` | public-domain examples; `examples/ay/` their AY versions |

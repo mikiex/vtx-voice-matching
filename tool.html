@@ -39,6 +39,11 @@ canvas { width: 100%; display: block; border-radius: 6px; background: #000; imag
 .playwrap { position: relative; }
 .playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 3px #000; pointer-events: none; }
 .playhead[hidden] { display: none; }
+.selbox { position: absolute; top: 0; bottom: 0; background: rgba(79, 209, 255, .18); border-left: 1px solid var(--ay); border-right: 1px solid var(--ay); pointer-events: none; }
+.selbox[hidden] { display: none; }
+#specRec, #specAy, #lanes { cursor: crosshair; }
+#selBar { margin: 8px 0 0; }
+#selText { font-variant-numeric: tabular-nums; }
 #slotBars { height: 160px; background: transparent; }
 .caption { display: flex; justify-content: space-between; color: var(--dim); font-size: 12px; margin: 6px 0 2px; }
 .stats { display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px; font-variant-numeric: tabular-nums; }
@@ -91,10 +96,20 @@ canvas { width: 100%; display: block; border-radius: 6px; background: #000; imag
     <div class="panel">
       <div class="caption"><span style="color:var(--rec)">Recording</span><span>0–6 kHz · white: pitch · <span style="color:var(--good)">F1</span> <span style="color:var(--ay)">F2</span> (LPC)</span></div>
       <canvas id="specRec" height="256"></canvas>
-      <div class="caption"><span style="color:var(--ay)">AY (Ayumi)</span><span>click a frame to inspect it</span></div>
+      <div class="caption"><span style="color:var(--ay)">AY (Ayumi)</span><span>click a frame to inspect it · drag to select a part</span></div>
       <canvas id="specAy" height="256"></canvas>
       <div class="caption"><span>Channels per update: <span style="color:var(--accent)">envelope</span> · <span style="color:var(--ay)">square</span> · <span style="color:var(--noise)">noise</span></span><span>A / B / C</span></div>
       <canvas id="lanes" height="36"></canvas>
+      <div class="row" id="selBar" hidden>
+        <span id="selText"></span>
+        <button id="selRec" title="Play the selected part of the recording">▶ Recording</button>
+        <button id="selAy" title="Play the selected part of the AY version">▶ AY</button>
+        <button id="selSeq" title="The selected part of the recording, half a second of silence, then the same part of the AY version">▶ A/B</button>
+        <button id="selWav" title="Save the selected part of the AY version as a WAV file">Save AY .wav</button>
+        <button id="selBin" title="Save the selected part as a stream for the Vectrex player (vtx_voice_player.asm): changed registers per 50 Hz update, the envelope restarted at the start">Save Vectrex .bin</button>
+        <button id="selAsm" title="The same stream as AS09 source (fcb lines under a label), to include with the player">Save Vectrex .asm</button>
+        <button id="selClear" title="Clear the selection (Esc)">×</button>
+      </div>
     </div>
     <div class="panel" id="frameInfo">
       <h2>Frame</h2>
@@ -147,6 +162,8 @@ canvas { width: 100%; display: block; border-radius: 6px; background: #000; imag
         <button id="saveFrames" disabled title="Every update's analysis and chosen AY state as JSON, for inspecting or other tools">Save frames.json</button>
         <button id="saveWav" disabled title="The AY version as a WAV file">Save AY .wav</button>
         <button id="saveSeq" disabled title="The recording, then the AY version, in one file">Save A→B .wav</button>
+        <button id="saveStream" disabled title="The whole match as a stream for the Vectrex player (vtx_voice_player.asm): changed registers per 50 Hz update">Save Vectrex .bin</button>
+        <button id="saveStreamAsm" disabled title="The same stream as AS09 source (fcb lines under a label), to include with the player">Save Vectrex .asm</button>
         <button id="saveBin" disabled title="14 bytes an update, R0..R13 in order; R13 is $FF when it must not be written (writing it restarts the envelope)">Save registers .bin</button>
       </div>
       <p class="hint">Error: weighted dB difference in harmonic slots, measured on one 100 Hz grid for every rate. Pitch: the envelope period's nearest step to the sung pitch.</p>

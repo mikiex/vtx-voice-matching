@@ -180,6 +180,8 @@
       lap("spectrogram");
       S.frame = Math.min(S.frame, S.result.frames.length - 1);
       ["playRec", "playAy", "playSeq", "saveFrames", "saveWav", "saveSeq", "saveBin"].forEach((id) => { $(id).disabled = false; });
+      setSelection(null);
+      vectrexButtons();
       $("playTarget").disabled = !S.analysis.target;
       setDirty(false);
       $("go").textContent = "Regenerate";
@@ -353,15 +355,100 @@
     drawStats();
   }
 
+  // Selection: drag across a picture to choose updates [a, b). A click
+  // without dragging still picks a frame.
+  const updateAt = (canvas, x) => {
+    const r = canvas.getBoundingClientRect();
+    return Math.max(0, Math.min(S.result.frames.length, Math.round((x - r.left) / r.width * S.result.frames.length)));
+  };
+  let drag = null;
   for (const id of ["specRec", "specAy", "lanes"]) {
+    $(id).addEventListener("mousedown", (e) => {
+      if (!S.result || e.button !== 0) return;
+      drag = { canvas: e.currentTarget, x: e.clientX, from: updateAt(e.currentTarget, e.clientX), moved: false };
+      e.preventDefault();
+    });
     $(id).addEventListener("click", (e) => {
-      if (!S.result) return;
+      const dragged = drag && drag.moved;
+      drag = null;
+      if (!S.result || dragged) return;
       const r = e.currentTarget.getBoundingClientRect();
       S.frame = Math.max(0, Math.min(S.result.frames.length - 1, Math.floor((e.clientX - r.left) / r.width * S.result.frames.length)));
       draw();
     });
   }
+  document.addEventListener("mousemove", (e) => {
+    if (!drag) return;
+    if (!drag.moved && Math.abs(e.clientX - drag.x) < 4) return;
+    drag.moved = true;
+    const at = updateAt(drag.canvas, e.clientX);
+    setSelection({ a: Math.min(at, drag.from), b: Math.max(at, drag.from) });
+  });
+  // A drag released outside the pictures gets no click: end it here.
+  document.addEventListener("mouseup", (e) => { if (drag && drag.moved && e.target !== drag.canvas) drag = null; });
+
+  function setSelection(sel) {
+    S.sel = sel && sel.b > sel.a ? sel : null;
+    const n = S.result ? S.result.frames.length : 1;
+    boxes.forEach((b) => {
+      b.hidden = !S.sel;
+      if (S.sel) { b.style.left = `${100 * S.sel.a / n}%`; b.style.width = `${100 * (S.sel.b - S.sel.a) / n}%`; }
+    });
+    $("selBar").hidden = !S.sel;
+    if (S.sel) {
+      const u = S.result.updates;
+      $("selText").textContent = `Selected ${(S.clip.from + S.sel.a / u).toFixed(2)}–${(S.clip.from + S.sel.b / u).toFixed(2)} s (${S.sel.b - S.sel.a} updates)`;
+    }
+  }
+  $("selClear").onclick = () => { stop(); setSelection(null); };
+
+  // Samples of the selection (updates on the clip's sample rate).
+  const selSamples = (x) => {
+    const per = S.clip.rate / S.result.updates;
+    return x.subarray(Math.round(S.sel.a * per), Math.min(x.length, Math.round(S.sel.b * per)));
+  };
+  // The playback line runs over the selected part of the pictures.
+  const selWhere = (len) => {
+    const n = S.result.frames.length, start = S.sel.a / n, part = (S.sel.b - S.sel.a) / n;
+    return (t) => start + part * Math.min(1, t * S.clip.rate / len);
+  };
+  $("selRec").onclick = () => { const x = selSamples(S.clip.samples); play(x, selWhere(x.length)); };
+  $("selAy").onclick = () => { const x = selSamples(S.rendered); play(x, selWhere(x.length)); };
+  $("selSeq").onclick = () => {
+    const a = selSamples(S.clip.samples), b = selSamples(S.rendered), ta = a.length / S.clip.rate, wa = selWhere(a.length), wb = selWhere(b.length);
+    play(VM.abSequence(a, b, S.clip.rate), (t) => (t < ta ? wa(t) : t < ta + 0.5 ? null : wb(t - ta - 0.5)));
+  };
+  const selName = () => `${S.name}_${(S.clip.from + S.sel.a / S.result.updates).toFixed(2)}-${(S.clip.from + S.sel.b / S.result.updates).toFixed(2)}s`;
+  $("selWav").onclick = () => save(new Blob([VM.writeWav(selSamples(S.rendered), S.clip.rate)], { type: "audio/wav" }), `${selName()}_${S.result.updates}hz_ay.wav`);
+
+  // Vectrex player streams: the player takes one update a frame at the
+  // Vectrex's clock, so only a 50 Hz match on machine Vectrex plays right.
+  function vectrexButtons() {
+    const ok = !!S.result && S.result.updates === 50 && $("machine").value === "vectrex";
+    ["saveStream", "saveStreamAsm", "selBin", "selAsm"].forEach((id) => {
+      const b = $(id);
+      if (b.dataset.title === undefined) b.dataset.title = b.title;
+      b.disabled = !ok;
+      b.title = ok || !S.result ? b.dataset.title : "The Vectrex player plays one update a frame at the Vectrex's clock: match at 50 Hz with machine Vectrex to save a stream.";
+    });
+  }
+  $("machine").addEventListener("change", vectrexButtons);
+  const asmLabel = (name) => "VM_" + name.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  function saveStream(regs, name, asm) {
+    const bytes = VM.encodeStream(regs);
+    if (!asm) return save(new Blob([bytes], { type: "application/octet-stream" }), `${name}_vectrex_stream.bin`);
+    const head = `; ${name}: ${regs.length} updates (${(regs.length / 50).toFixed(2)} s at 50 Hz), ${bytes.length} bytes.\n` +
+      `; Voice matching stream for vtx_voice_player.asm: ldx #${asmLabel(name)} / jsr VM_Start, then\n` +
+      `; jsr VM_Service and jsr Do_Sound once a frame while VM_Busy says it is playing.\n`;
+    save(new Blob([head + VM.streamAsm(bytes, asmLabel(name))], { type: "text/plain" }), `${name}_vectrex_stream.asm`);
+  }
+  $("saveStream").onclick = () => saveStream(S.result.regs, S.name, false);
+  $("saveStreamAsm").onclick = () => saveStream(S.result.regs, S.name, true);
+  $("selBin").onclick = () => saveStream(VM.sliceRegs(S.result.regs, S.sel.a, S.sel.b), selName(), false);
+  $("selAsm").onclick = () => saveStream(VM.sliceRegs(S.result.regs, S.sel.a, S.sel.b), selName(), true);
+
   document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && S.sel) { stop(); setSelection(null); return; }
     if (!S.result || e.target.tagName === "INPUT") return;
     if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
       S.frame = Math.max(0, Math.min(S.result.frames.length - 1, S.frame + (e.key === "ArrowRight" ? 1 : -1)));
@@ -381,12 +468,16 @@
   // Playback line: one over each spectrogram and the lanes, at the playing
   // time. `where(seconds)` gives the place in the clip (0..1), or null to hide
   // it (the A/B gap).
+  const boxes = [];                               // the selection, over each picture
   const heads = ["specRec", "specAy", "lanes"].map((id) => {
-    const c = $(id), wrap = document.createElement("div"), line = document.createElement("div");
+    const c = $(id), wrap = document.createElement("div"), line = document.createElement("div"), box = document.createElement("div");
     wrap.className = "playwrap";
     line.className = "playhead";
+    box.className = "selbox";
+    box.hidden = true;
     c.parentNode.insertBefore(wrap, c);
-    wrap.append(c, line);
+    wrap.append(c, box, line);
+    boxes.push(box);
     return line;
   });
   let headFrame = 0;

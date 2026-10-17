@@ -163,7 +163,8 @@
 
 <section id="playback" class="prose">
   <h2>6. Playing it back on a Vectrex or a Spectrum</h2>
-  <p>No player exists yet; this section is what one needs. The tool's output is a register stream: <b>Save registers .bin</b> writes 14 bytes per update, R0 to R13 in order. R13 (the envelope shape) is $FF when it must not be written, because writing it restarts the envelope; it is written once, when the buzz starts. A player only has to copy one 14-byte record to the AY every frame.</p>
+  <p><b>Vectrex: a player exists.</b> In the tool, match at 50 Hz with machine Vectrex, then <b>Save Vectrex .asm</b> (the whole match) or drag across the spectrogram and save just that part. <a href="https://github.com/mikiex/vtx-voice-matching/tree/main/vectrex"><code>vectrex/vtx_voice_player.asm</code></a> (193 bytes of 6809 code, 4 bytes of RAM) plays it: each update is a 2-byte mask of the registers that changed, then their values, about 250–350 bytes a second of speech. <code>vectrex/voice_cart.asm</code> is a complete example cartridge. The player matches the tool update by update in MAME, and MAME's sound matches the tool's Ayumi render; nobody has heard it on a real Vectrex yet.</p>
+  <p>For other machines, <b>Save registers .bin</b> writes 14 bytes per update, R0 to R13 in order. R13 (the envelope shape) is $FF when it must not be written, because writing it restarts the envelope; it is written once, when the buzz starts. A player only has to copy one 14-byte record to the AY every frame.</p>
   <p><b>Match for the right machine.</b> Every period register depends on the chip's clock, so choose the machine in the tool before matching. The same file played on a machine with a different clock would come out at the wrong pitch.</p>
   <div class="tablewrap">
   <table>
@@ -196,7 +197,7 @@
 <section id="next" class="prose">
   <h2>8. Limits and next steps</h2>
   <ul>
-    <li><b>No player yet.</b> A Vectrex cartridge or a Spectrum program that streams the registers, then a check that the hardware sounds like Ayumi.</li>
+    <li><b>Hardware.</b> The Vectrex player works in MAME; it still needs a listen on a real Vectrex. No Spectrum player yet.</li>
     <li><b>A compact format</b>, to fit more than seconds of speech.</li>
     <li><b>More from the noise channel:</b> the envelope ANDed with noise for breathy and voiced sounds (z, v), and noise ANDed with a tone to shape fricatives (s against sh).</li>
     <li><b>An extra update only where the sound changes fast</b> (consonant onsets), instead of a faster rate everywhere.</li>

@@ -67,7 +67,7 @@ test("the AY's own voice matches closely, at 50, 100 and 200 Hz", () => {
     const analysis = VM.analyse(samples, RATE, { updates });
     // Smoothness 10: this checks the model on a steady AY sound, where the
     // default 0 (best for real speech) flickers between near-equal settings.
-    const result = VM.match(analysis, { smooth: 10 });
+    const result = VM.match(analysis, { smooth: 10, noiseTrim: 0, brightNoiseBoost: 0 });   // the matcher alone, without the by-ear noise cut
     const rendered = VM.render(result.regs, RATE, Ayumi, result.updates);
     const m = VM.evaluate(analysis, result, rendered, samples);
     assert.strictEqual(result.frames.length, SECONDS * updates);
@@ -153,6 +153,34 @@ test("writes within an update (events) take effect at their time", () => {
   };
   assert.ok(level(0.022, 0.029) > 1e-4, "sounding before the event");
   assert.ok(level(0.032, 0.039) < level(0.022, 0.029) / 100, "silent after the event (10 ms into update 1)");
+});
+
+test("player stream: decodes to the same registers, R13 only on restarts", () => {
+  const result = VM.match(VM.analyse(samples, RATE, {}), {});
+  const bytes = VM.encodeStream(result.regs), back = VM.decodeStream(bytes);
+  assert.strictEqual(back.length, result.regs.length);
+  back.forEach((f, i) => {
+    for (let r = 0; r < 13; r++) assert.strictEqual(f.regs[r], result.regs[i].regs[r], `update ${i} R${r}`);
+    assert.strictEqual(f.shape, result.regs[i].shape, `update ${i} restart`);
+    if (f.shape) assert.strictEqual(f.regs[13], result.regs[i].regs[13]);
+  });
+  assert.ok(bytes.length < 14 * result.regs.length, `smaller than 14 bytes an update (${bytes.length})`);
+  assert.deepStrictEqual(Array.from(bytes.slice(-2)), [0x80, 0x00]);
+});
+
+test("a selected part streams on its own: all registers first, the envelope restarted", () => {
+  const result = VM.match(VM.analyse(samples, RATE, {}), {});
+  const a = 7, b = Math.min(result.regs.length, 30);
+  assert.ok(!result.regs[a].shape, "the part starts where the whole match does not restart");
+  const part = VM.sliceRegs(result.regs, a, b), back = VM.decodeStream(VM.encodeStream(part));
+  assert.strictEqual(back.length, b - a);
+  assert.ok(back[0].shape, "restart at the part's first update");
+  assert.strictEqual(back[0].regs[13], result.regs[a].regs[13], "with the shape in use there");
+  back.forEach((f, i) => {
+    for (let r = 0; r < 13; r++) assert.strictEqual(f.regs[r], result.regs[a + i].regs[r], `update ${a + i} R${r}`);
+    if (i) assert.strictEqual(f.shape, result.regs[a + i].shape, `update ${a + i} restart`);
+  });
+  assert.ok(!result.regs[a].shape, "the whole match is unchanged");
 });
 
 console.log(`all passed (${passed})`);

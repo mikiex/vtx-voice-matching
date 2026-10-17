@@ -1330,6 +1330,15 @@
     return frames;
   }
 
+  // Updates [from, to) of a match's registers as a stream of their own: the
+  // first update restarts the envelope (writes R13), since a part taken from
+  // the middle would otherwise rely on a restart before it.
+  function sliceRegs(regs, from = 0, to = regs.length) {
+    const out = regs.slice(from, to);
+    if (out.length) out[0] = { ...out[0], shape: true };
+    return out;
+  }
+
   // AS09 source for a stream: `label` then fcb lines, 16 bytes a line.
   function streamAsm(bytes, label) {
     const lines = [`${label}:`];
@@ -1353,6 +1362,6 @@
     return { cols, bins, db, hz: rate / size };
   }
 
-  return { get CLOCK() { return CLOCK; }, MACHINES, setClock, setShape, stateKey, keyToEntry, dump, FRAME_RATE, DEFAULTS, LEVEL, readWav, writeWav, analyse, match, matchAsync, render, evaluate, spectrogram, slots, epFor, pitchOf, tpFor,
+  return { get CLOCK() { return CLOCK; }, MACHINES, setClock, setShape, stateKey, keyToEntry, dump, FRAME_RATE, DEFAULTS, LEVEL, readWav, writeWav, analyse, match, matchAsync, sliceRegs, render, evaluate, spectrogram, slots, epFor, pitchOf, tpFor,
     envTemplate, squareTemplate, noiseTemplate, noiseToneTemplate, ENV_MEAN_SQ, maxOf, stoi, fft, resample, preprocess, fitTo, abSequence, encodeStream, decodeStream, streamAsm };
 });
