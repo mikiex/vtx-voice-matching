@@ -56,7 +56,7 @@
     squareCache.clear();
   }
   const FRAME_RATE = 50;
-  const RENDER_GAIN = 0.66;         // three channels at pan 0.5 without clipping
+  const RENDER_GAIN = 0.66;         // as tools/vtx_speech/render.js: three channels without clipping
   const PAN = 0.5;                  // each channel at pan 0.5: half its level on the output
   // AY volume levels (Ayumi's AY_DAC_TABLE, one entry per pair).
   const LEVEL = [0.0, 0.00999465934234, 0.0144502937362, 0.0210574502174, 0.0307011520562,
@@ -106,6 +106,19 @@
     plosiveEnv: false,              // a noise channel at envelope volume, one-shot decay (R13 shape 0), when the envelope is free
     plosiveVol: false,              // volume steps 15, 11, 7, 3 within the update (needs mid-update writes)
     plosiveMs: 10,                  // burst length
+    plosiveNoiseTrim: 0,            // volume steps off the noise at plosive releases only
+    plosiveReplace: false,          // plosive releases: the noise channel decays over plosiveMs instead of a flat 20 ms block
+    // Fewer register writes (both off by default):
+    pitchHold: 0,                   // cents: keep the pitch (envelope and square periods) until it drifts further
+    volumeHold: false,              // ignore +-1 volume steps on a channel keeping the same sound
+    // Noise and brightness:
+    overshoot: 1,                   // weight of errors where the AY is louder than the recording
+    noiseTrim: 6,                   // volume steps taken off every noise channel after the search (user, 17 October 2026)
+    dullNoiseTrim: 0,               // volume steps off the noise where the recording is dull (tiltDb over dullTiltDb)
+    dullTiltDb: 5,
+    brightNoiseBoost: 4,            // volume steps onto the noise where the recording is bright (tiltDb under brightTiltDb): "s" only 2 quieter
+    brightTiltDb: -15,
+    energyVoicing: false,           // free mode: voiced also by energy balance; unpitched voiced updates borrow the nearest clear pitch
     exactSquares: true,             // squares tuned to the recording's pitch, not the rounded envelope pitch (default since 17 Oct 2026: never lost by ear, helps singing)
     dither: false,                  // envelope period by error diffusion: the average pitch lands on target
   };
@@ -443,9 +456,11 @@
       }
       f.tiltDb = 10 * Math.log10((lo + 1e-12) / (hi + 1e-12));
       f.pitched = f.clarity < o.voicing && f.f0 >= o.fmin && f.f0 <= o.fmax;
-      f.voiced = !f.gated && f.rms > quiet && (o.mode === "speech" ? f.tiltDb > 0 : f.pitched);
+      // energyVoicing (free mode): also voiced when clearly low-heavy (over 3 dB),
+      // so speech the pitch tracker misses keeps its buzz instead of turning to noise.
+      f.voiced = !f.gated && f.rms > quiet && (o.mode === "speech" ? f.tiltDb > 0 : f.pitched || (o.energyVoicing && f.tiltDb > 3));
     }
-    if (o.mode === "speech") {
+    if (o.mode === "speech" || o.energyVoicing) {
       // Speech: voicing from where the energy is (above 0 dB low/high), as
       // speech coders do, since processed or noisy voices defeat YIN. A
       // voiced update without a clear pitch takes the nearest clear one.
@@ -676,7 +691,32 @@
       setShape("saw");
       shape = "segments";
     }
-    if (o.plosiveEnv || o.plosiveVol) markPlosives(analysis, out, o);
+    if (o.noiseTrim || o.dullNoiseTrim || o.brightNoiseBoost) {
+      // Noise volume steps, one net change per update: noiseTrim off every
+      // noise channel; by the recording's brightness (tiltDb: 80-1000 Hz
+      // against 2-8 kHz), dullNoiseTrim more off where it is dull (a vowel
+      // onset the pitch tracker missed, the "t" of "protect") and
+      // brightNoiseBoost on where it is bright (an "s"). At most 15; off below 1.
+      out.forEach((m, i) => {
+        const t = analysis.frames[i].tiltDb;
+        const d = -o.noiseTrim + (t > o.dullTiltDb ? -o.dullNoiseTrim : t < o.brightTiltDb ? o.brightNoiseBoost : 0);
+        if (!d) return;
+        m.state = { ...m.state, ch: m.state.ch.map((c) => (c.kind === "noise" || c.kind === "noisetone"
+          ? (c.v + d >= 1 ? { ...c, v: Math.min(15, c.v + d) } : { kind: "off", n: 0, v: 0 }) : c)) };
+      });
+    }
+    if (o.volumeHold) {
+      // A +-1 step on a channel keeping the same sound and harmonic keeps the
+      // previous (held) volume; two steps or more get through.
+      for (let i = 1; i < out.length; i++) {
+        const prevCh = out[i - 1].state.ch;
+        out[i].state = { ...out[i].state, ch: out[i].state.ch.map((c, k) => {
+          const p2 = prevCh[k];
+          return p2.kind === c.kind && p2.n === c.n && c.v < 16 && c.v > 0 && p2.v > 0 && Math.abs(c.v - p2.v) === 1 ? { ...c, v: p2.v } : c;
+        }) };
+      }
+    }
+    if (o.plosiveEnv || o.plosiveVol || o.plosiveNoiseTrim || o.plosiveReplace) markPlosives(analysis, out, o);
     const regs = registers(out);
     return { frames: out, regs, updates: o.updates, clock: CLOCK, envShape: shape, gain, autoLevelDb: auto, eps: floor, stats: stats(analysis, out, regs) };
   }
@@ -684,16 +724,25 @@
   // Matches the given frames in order. `quick`: no smoothing (frames apart).
   function search(analysis, o, gain, eps, indices, quick) {
     const { frames, binHz } = analysis, usable = [0, 1, 2].filter((c) => o.channels[c]), smooth = quick ? 0 : o.smooth;
+    const overshoot = o.overshoot || 1;
     const eps_ = [];                              // envelope period per frame: unvoiced frames keep the last
-    let carry = 0, err = 0;
+    // pitchHold: the pitch actually used, held until the measured pitch moves
+    // more than pitchHold cents from it (fewer envelope and tone writes).
+    const f0h = [];
+    let held = 0;
     for (const f of frames) {
+      if (f.voiced && !(held && o.pitchHold && Math.abs(1200 * Math.log2(f.f0 / held)) < o.pitchHold)) held = f.f0;
+      f0h.push(f.voiced ? held : 0);
+    }
+    let carry = 0, err = 0;
+    for (const [fi, f] of frames.entries()) {
       if (f.voiced) {
         if (o.dither) {
           // Error diffusion: carry the rounding error into the next update.
-          const x = TICK / (ENV_STEPS * f.f0), e = Math.max(1, Math.min(65535, Math.round(x + err)));
+          const x = TICK / (ENV_STEPS * f0h[fi]), e = Math.max(1, Math.min(65535, Math.round(x + err)));
           err += x - e;
           carry = e;
-        } else carry = epFor(f.f0);
+        } else carry = epFor(f0h[fi]);
       } else err = 0;
       eps_.push(carry);
     }
@@ -724,7 +773,9 @@
       }
       const cost = (M) => {
         let s = 0;
-        for (let k = 0; k < count; k++) { const d = 4.342944819 * (logR[k] - Math.log(M[k] + fe)); s += w[k] * d * d; }
+        // overshoot: energy the AY adds over the recording counts this many times
+        // (added sound is more audible than missing sound).
+        for (let k = 0; k < count; k++) { const d = 4.342944819 * (logR[k] - Math.log(M[k] + fe)); s += w[k] * d * d * (d < 0 ? overshoot : 1); }
         return s / wsum;
       };
 
@@ -738,7 +789,7 @@
       if (o.bare) cands.push({ kind: "env", n: 0, v: 16 });
       for (const n of envTones) cands.push({ kind: "env", n, v: 16 });
       // exactSquares: tone period from the recording's pitch (finer steps than the envelope's).
-      const squareTp = (n) => (o.exactSquares && f.voiced ? Math.max(1, Math.min(4095, Math.round(TICK / (2 * n * f.f0)))) : 0);
+      const squareTp = (n) => (o.exactSquares && f.voiced ? Math.max(1, Math.min(4095, Math.round(TICK / (2 * n * f0h[i])))) : 0);
       if (o.fixed) for (const n of tones) { const tp = squareTp(n); for (let v = 1; v <= 15; v++) cands.push(tp ? { kind: "square", n, v, tp } : { kind: "square", n, v }); }
       if (o.envGate) cands.push({ kind: "envgate", n: 0, v: 16, tp: 1 });
       const noises = [];
@@ -876,6 +927,22 @@
     const fr = analysis.frames, loud = maxOf(fr.map((f) => f.rms)), quiet = loud * Math.pow(10, -30 / 20);
     for (let i = 1; i < out.length; i++) {
       if (!(fr[i - 1].rms < quiet && fr[i].rms > fr[i - 1].rms * Math.pow(10, 10 / 20))) continue;
+      out[i].plosive = true;
+      const isNoise = (c) => c.kind === "noise" || c.kind === "noisetone";
+      if (o.plosiveNoiseTrim) {
+        // Only the release: its noise channels plosiveNoiseTrim steps quieter (off below 1).
+        out[i].state = { ...out[i].state, ch: out[i].state.ch.map((c) => (isNoise(c)
+          ? (c.v - o.plosiveNoiseTrim >= 1 ? { ...c, v: c.v - o.plosiveNoiseTrim } : { kind: "off", n: 0, v: 0 }) : c)) };
+      }
+      if (o.plosiveReplace) {
+        // The release's loudest noise channel becomes a decaying burst: its own
+        // volume, then 3 steps quieter every quarter of plosiveMs, then off,
+        // instead of a flat block for the whole update.
+        const noisy = out[i].state.ch.map((c, k) => [c, k]).filter(([c]) => isNoise(c)).sort((x, y) => y[0].v - x[0].v);
+        if (noisy.length) out[i].burst = { kind: "decay", ch: noisy[0][1], v: noisy[0][0].v, ms: o.plosiveMs };
+        continue;
+      }
+      if (!o.plosiveEnv && !o.plosiveVol) continue;
       const ch = out[i].state.ch;
       let pick = ch.findIndex((c) => c.kind === "off");
       if (pick < 0) {
@@ -917,6 +984,11 @@
         r[12] = f.burst.ep >> 8;
         code = 0;
         env = true;
+      } else if (f.burst && f.burst.kind === "decay") {
+        // Decaying burst on a noise channel already sounding: v, v-3, v-6, v-9, then 0.
+        const b = f.burst.ch, step = f.burst.ms / 4000;
+        events = [0, 1, 2, 3].map((k) => ({ t: k * step, reg: 8 + b, value: Math.max(0, f.burst.v - 3 * k) }));
+        events.push({ t: 4 * step, reg: 8 + b, value: 0 });
       } else if (f.burst && f.burst.kind === "vol") {
         // Volume burst: noise on, tone off, volumes 15, 11, 7, 3 across the burst,
         // then the update's own mixer and volume.
@@ -1192,6 +1264,49 @@
     return out;
   }
 
+  // ------------------------------------------------------- player stream
+
+  // The stream the 6809 player reads (vtx_voice_player.asm). Each update: a
+  // 2-byte mask, high byte first (low byte bits 0-7 = R0-R7, high byte bits
+  // 0-5 = R8-R13), then the values of the set registers in order R0..R13. A
+  // register is sent when it differs from the last value sent (all of them on
+  // the first update). R13 is sent only when the envelope must restart (the
+  // update's `shape`): writing it restarts the envelope. $80 $00 ends it.
+  function encodeStream(regs) {
+    const out = [], last = new Array(14).fill(-1);
+    for (const f of regs) {
+      let mask = 0;
+      const vals = [];
+      for (let r = 0; r < 13; r++) if (f.regs[r] !== last[r]) { mask |= 1 << r; vals.push(f.regs[r]); last[r] = f.regs[r]; }
+      if (f.shape) { mask |= 1 << 13; vals.push(f.regs[13]); }
+      out.push(mask >> 8, mask & 0xff, ...vals);
+    }
+    out.push(0x80, 0x00);
+    return Uint8Array.from(out);
+  }
+
+  // What the player leaves in the sound buffer after each update: the
+  // registers, and whether R13 was written (the envelope restarted).
+  function decodeStream(bytes) {
+    const frames = [], regs = new Array(14).fill(0);
+    let i = 0;
+    for (;;) {
+      const mask = (bytes[i] << 8) | bytes[i + 1];
+      i += 2;
+      if (mask & 0x8000) break;
+      for (let r = 0; r < 14; r++) if (mask & (1 << r)) regs[r] = bytes[i++];
+      frames.push({ regs: regs.slice(), shape: !!(mask & (1 << 13)) });
+    }
+    return frames;
+  }
+
+  // AS09 source for a stream: `label` then fcb lines, 16 bytes a line.
+  function streamAsm(bytes, label) {
+    const lines = [`${label}:`];
+    for (let i = 0; i < bytes.length; i += 16) lines.push("        fcb    " + Array.from(bytes.slice(i, i + 16), (b) => "$" + b.toString(16).toUpperCase().padStart(2, "0")).join(","));
+    return lines.join("\n") + "\n";
+  }
+
   // Log-power spectrogram (100 columns a second, 0..topHz) for display.
   function spectrogram(samples, rate, topHz = 6000) {
     const size = 1024, hop = rate / 100, cols = Math.floor(samples.length / hop);
@@ -1209,5 +1324,5 @@
   }
 
   return { get CLOCK() { return CLOCK; }, MACHINES, setClock, setShape, stateKey, keyToEntry, dump, FRAME_RATE, DEFAULTS, LEVEL, readWav, writeWav, analyse, match, render, evaluate, spectrogram, slots, epFor, pitchOf, tpFor,
-    envTemplate, squareTemplate, noiseTemplate, noiseToneTemplate, ENV_MEAN_SQ, maxOf, stoi, fft, resample, preprocess, fitTo, abSequence };
+    envTemplate, squareTemplate, noiseTemplate, noiseToneTemplate, ENV_MEAN_SQ, maxOf, stoi, fft, resample, preprocess, fitTo, abSequence, encodeStream, decodeStream, streamAsm };
 });

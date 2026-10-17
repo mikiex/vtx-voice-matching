@@ -6,7 +6,7 @@
   let audio = null, source = null, timer = 0;
 
   const status = (text) => { $("status").textContent = text; };
-  const sliders = ["denoise", "consonantDb", "sharpen", "gateDb", "smooth", "levelDb", "floorDb", "rangeDb", "fTop", "voicing", "fmin", "fmax"];
+  const sliders = ["denoise", "consonantDb", "sharpen", "gateDb", "noiseTrim", "brightNoiseBoost", "overshoot", "smooth", "levelDb", "floorDb", "rangeDb", "fTop", "voicing", "fmin", "fmax"];
   const analysisKeys = ["voicing", "fmin", "fmax", "gateDb", "mode", "pitchSmooth", "denoise", "consonantDb", "sharpen"];
 
   function options() {
