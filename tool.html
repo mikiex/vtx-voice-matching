@@ -113,6 +113,8 @@ canvas { width: 100%; display: block; border-radius: 6px; background: #000; imag
         <label><input id="bare" type="checkbox" checked> bare buzz</label>
         <label><input id="fixed" type="checkbox" checked> fixed squares</label>
         <label><input id="noise" type="checkbox" checked> noise</label>
+        <label title="Square tones tuned to the recording's own pitch rather than to the envelope's rounded pitch: finer pitch steps, best for singing"><input id="exactSquares" type="checkbox" checked> exact squares</label>
+        <label title="Noise ANDed with a 1-6 kHz tone: hiss moved up the spectrum, for consonants"><input id="noiseTone" type="checkbox" checked> noise × tone</label>
       </div>
       <div class="slider"><span>Gate (dB)</span><input id="gateDb" type="range" min="6" max="60" step="1" value="19" title="Updates this far below the loudest are silent (60: off). Set it between the background and the voice; 19 suits the film-line test clip."><output></output></div>
       <div class="slider"><span>Denoise</span><input id="denoise" type="range" min="0" max="6" step="0.5" value="4" title="Background removal: subtract this many times the background's spectrum (0: off). 4 suits the film-line test clip; use 0 on clean recordings."><output></output></div>

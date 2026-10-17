@@ -38,6 +38,9 @@ file. Changing settings marks the result out of date until you press
   CPC 1 MHz, MSX 1.79 MHz, Atari ST 2 MHz. Period registers depend on it.
 - **Free match / Speech**: search everything, or speech-coder rules (LPC
   formants guide A/B, noise only when unvoiced).
+- **exact squares**, **noise × tone** (on by default): squares tuned to the
+  recording's pitch, and noise ANDed with a 1-6 kHz tone for consonants. Both
+  were chosen by blind listening tests (see the explainer, section 3b).
 - **Denoise**, **Gate**: clean up and silence a background. For noisy
   recordings, clean the file first with
   [NVIDIA RE-USE](https://huggingface.co/nvidia/RE-USE) (recommended; others:

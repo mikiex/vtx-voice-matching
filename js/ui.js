@@ -11,7 +11,7 @@
 
   function options() {
     const o = { clock: VM.MACHINES[$("machine").value].clock, mode: S.mode, pitchSmooth: S.mode === "speech", updates: S.updates, channels: ["chA", "chB", "chC"].map((id) => $(id).checked),
-      bare: $("bare").checked, fixed: $("fixed").checked, noise: $("noise").checked };
+      bare: $("bare").checked, fixed: $("fixed").checked, noise: $("noise").checked, exactSquares: $("exactSquares").checked, noiseTone: $("noiseTone").checked };
     for (const id of sliders) o[id] = Number($(id).value);
     return o;
   }
@@ -178,7 +178,7 @@
     show();
     input.addEventListener("input", () => { show(); rerun(); });
   }
-  ["chA", "chB", "chC", "bare", "fixed", "noise"].forEach((id) => $(id).addEventListener("change", rerun));
+  ["chA", "chB", "chC", "bare", "fixed", "noise", "exactSquares", "noiseTone"].forEach((id) => $(id).addEventListener("change", rerun));
   for (const [id, m] of Object.entries(VM.MACHINES)) $("machine").add(new Option(`${m.name} (${(m.clock / 1e6).toFixed(4).replace(/0+$/, "")} MHz)`, id));
   $("machine").addEventListener("change", rerun);
   // Speech and free matching want different pitch settings: switching sets them.

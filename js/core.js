@@ -43,6 +43,18 @@
     envCache.clear();
     squareCache.clear();
   }
+  // Envelope shape: the sawtooth (shape 8, 32 steps a cycle) or the triangle
+  // (shape 10, down then up: 64 steps, odd harmonics only, falling about
+  // 12 dB an octave instead of 6). The pitch, period and lock follow from it.
+  let ENV_STEPS = 32, ENV_SHAPE = 8;
+  function setShape(name) {
+    const steps = name === "triangle" ? 64 : 32;
+    if (steps === ENV_STEPS) return;
+    ENV_STEPS = steps;
+    ENV_SHAPE = name === "triangle" ? 10 : 8;
+    envCache.clear();
+    squareCache.clear();
+  }
   const FRAME_RATE = 50;
   const RENDER_GAIN = 0.66;         // three channels at pan 0.5 without clipping
   const PAN = 0.5;                  // each channel at pan 0.5: half its level on the output
@@ -80,6 +92,16 @@
     denoise: 0,                     // background removal: over-subtraction factor (2 is typical)
     consonantDb: 0,                 // boost above 1.5 kHz in unvoiced frames (dB)
     sharpen: 0,                     // formant sharpening: power on the smoothed envelope (0.5 is typical)
+    // Extra AY sounds the search may choose:
+    envNoise: false,                // envelope volume, tone off, noise on: a breathy buzz
+    envGate: false,                 // envelope gated by an ultrasonic tone (period 1): the buzz at -6 dB
+    noiseTone: true,                // noise ANDed with a 1-6 kHz tone: noise moved up the spectrum (default since 17 Oct 2026: preferred 4/4 blind on noisy and cleaned speech, a tie on clean)
+    // Pitch options:
+    envShape: "saw",                // "saw" (shape 8) or "triangle" (shape 10)
+    phaseLock: false,               // envelope-gated tones only on harmonics that divide the cycle exactly
+    formantPairs: false,            // speech mode: C joins A near F1
+    exactSquares: true,             // squares tuned to the recording's pitch, not the rounded envelope pitch (default since 17 Oct 2026: never lost by ear, helps singing)
+    dither: false,                  // envelope period by error diffusion: the average pitch lands on target
   };
 
   // ---------------------------------------------------------------- WAV
@@ -466,9 +488,9 @@
 
   // ------------------------------------------------------------- model
 
-  const epFor = (f0) => Math.max(1, Math.min(65535, Math.round(CLOCK / (256 * f0))));
-  const pitchOf = (ep) => CLOCK / (256 * ep);
-  const tpFor = (ep, n) => Math.max(1, Math.min(4095, Math.round(16 * ep / n)));
+  const epFor = (f0) => Math.max(1, Math.min(65535, Math.round(TICK / (ENV_STEPS * f0))));
+  const pitchOf = (ep) => TICK / (ENV_STEPS * ep);
+  const tpFor = (ep, n) => Math.max(1, Math.min(4095, Math.round(ENV_STEPS * ep / (2 * n))));
 
   // Slot powers (k = 1..) of one channel at envelope volume: the shape-8
   // sawtooth gated by a tone locked to harmonic n (n = 0: tone off), as a
@@ -478,14 +500,14 @@
     const key = ep * 64 + n;
     let t = envCache.get(key);
     if (t && t.length >= count) return t;
-    const period = 32 * ep, tp = n ? tpFor(ep, n) : 0;
+    const period = ENV_STEPS * ep, tp = n ? tpFor(ep, n) : 0;
     const phases = n ? [0, tp >> 1, tp, (3 * tp) >> 1] : [0];
     const x = new Float64Array(period), cos = new Float64Array(period), sin = new Float64Array(period);
     for (let i = 0; i < period; i++) { cos[i] = Math.cos(2 * Math.PI * i / period); sin[i] = Math.sin(2 * Math.PI * i / period); }
     t = new Float64Array(count);
     for (const ph of phases) {
       for (let i = 0; i < period; i++) {
-        const level = LEVEL[(31 - Math.floor(i / ep)) >> 1];
+        const step = Math.floor(i / ep), level = LEVEL[(step < 32 ? 31 - step : step - 32) >> 1];   // down, then (triangle) up
         x[i] = n && (Math.floor((i + ph) / tp) & 1) ? 0 : level;
       }
       for (let k = 1; k <= count; k++) {
@@ -526,6 +548,43 @@
     return t;
   }
 
+  // One-sided power density of full-level noise bits (variance 1/4) at f.
+  function noisePsd(np, f) {
+    const T = 2 * np / TICK, x = Math.PI * f * T;
+    return 2 * 0.25 * T * (x === 0 ? 1 : (Math.sin(x) / x) ** 2);
+  }
+
+  // Slot powers of a full-level square of tone period tp (odd partials).
+  function squareFromTp(tp, f0, count) {
+    const tone = TICK / (2 * tp), t = new Float64Array(count);
+    for (let m = 1; m * tone < (count + 0.5) * f0; m += 2) {
+      const k = Math.round(m * tone / f0);
+      if (k >= 1) t[k - 1] += 2 / (Math.PI * Math.PI * m * m);
+    }
+    return t;
+  }
+
+  // Noise bits b ANDed with a square s (both 0/1): b s = 1/4 + s'/2 + b'/2 + b' s',
+  // with s' = s - 1/2 and b' = b - 1/2. Powers: the square / 4, the noise / 4,
+  // and the noise moved to each odd partial m of the tone (amplitude 2/(pi m)).
+  function noiseToneTemplate(np, tp, f0, count) {
+    const sq = squareFromTp(tp, f0, count), tone = TICK / (2 * tp), t = new Float64Array(count);
+    for (let k = 1; k <= count; k++) {
+      const f = k * f0;
+      let p = sq[k - 1] / 4 + noisePsd(np, f) * f0 / 4;
+      for (let m = 1; m <= 7; m += 2) {
+        const a2 = (2 / (Math.PI * m)) ** 2;
+        p += a2 / 4 * (noisePsd(np, Math.abs(f - m * tone)) + noisePsd(np, f + m * tone)) * f0;
+      }
+      t[k - 1] = p;
+    }
+    return t;
+  }
+
+  // Mean square of the envelope's 32 steps (for noise ANDed with the buzz).
+  const ENV_MEAN_SQ = Array.from({ length: 32 }, (_, i) => LEVEL[i >> 1] ** 2).reduce((a, b) => a + b, 0) / 32;
+  const NOISE_TONES = [1000, 1600, 2500, 4000, 6000];   // Hz: where noise x tone moves the noise
+
   // Mean square of the bare full buzz (the reference for the level).
   function buzzPower() {
     let s = 0;
@@ -541,6 +600,7 @@
   function match(analysis, options = {}) {
     const o = { ...analysis.options, ...options };
     setClock(o.clock || 1500000);
+    setShape(o.envShape);
     const { frames, binHz } = analysis;
     const ref = buzzPower();
     // Starting level: the loudest voiced frames (90th percentile of slot
@@ -571,8 +631,18 @@
   function search(analysis, o, gain, eps, indices, quick) {
     const { frames, binHz } = analysis, usable = [0, 1, 2].filter((c) => o.channels[c]), smooth = quick ? 0 : o.smooth;
     const eps_ = [];                              // envelope period per frame: unvoiced frames keep the last
-    let carry = 0;
-    for (const f of frames) { if (f.voiced) carry = epFor(f.f0); eps_.push(carry); }
+    let carry = 0, err = 0;
+    for (const f of frames) {
+      if (f.voiced) {
+        if (o.dither) {
+          // Error diffusion: carry the rounding error into the next update.
+          const x = TICK / (ENV_STEPS * f.f0), e = Math.max(1, Math.min(65535, Math.round(x + err)));
+          err += x - e;
+          carry = e;
+        } else carry = epFor(f.f0);
+      } else err = 0;
+      eps_.push(carry);
+    }
     const firstEp = eps_.find((e) => e) || epFor(150);
     const out = [];
     let prev = { ch: [OFF, OFF, OFF], np: 8 };
@@ -607,13 +677,20 @@
       // Candidate settings for one channel; noise ones use the shared period.
       const top = Math.max(0, Math.floor(o.fTop / f0q));
       const tones = [];
-      for (let n = 1; n <= Math.min(top, 63); n++) if (16 * ep / n >= 1) tones.push(n);
+      for (let n = 1; n <= Math.min(top, 63); n++) if (ENV_STEPS * ep / (2 * n) >= 1) tones.push(n);
+      // phaseLock: envelope-gated tones only where the tone period divides the cycle exactly.
+      const envTones = o.phaseLock ? tones.filter((n) => (ENV_STEPS * ep / 2) % n === 0) : tones;
       const cands = [OFF];
       if (o.bare) cands.push({ kind: "env", n: 0, v: 16 });
-      for (const n of tones) cands.push({ kind: "env", n, v: 16 });
-      if (o.fixed) for (const n of tones) for (let v = 1; v <= 15; v++) cands.push({ kind: "square", n, v });
+      for (const n of envTones) cands.push({ kind: "env", n, v: 16 });
+      // exactSquares: tone period from the recording's pitch (finer steps than the envelope's).
+      const squareTp = (n) => (o.exactSquares && f.voiced ? Math.max(1, Math.min(4095, Math.round(TICK / (2 * n * f.f0)))) : 0);
+      if (o.fixed) for (const n of tones) { const tp = squareTp(n); for (let v = 1; v <= 15; v++) cands.push(tp ? { kind: "square", n, v, tp } : { kind: "square", n, v }); }
+      if (o.envGate) cands.push({ kind: "envgate", n: 0, v: 16, tp: 1 });
       const noises = [];
       if (o.noise) for (let v = 1; v <= 15; v++) noises.push({ kind: "noise", n: 0, v });
+      if (o.envNoise) noises.push({ kind: "envnoise", n: 0, v: 16 });
+      if (o.noiseTone) NOISE_TONES.forEach((hz, j) => { const tp = Math.max(1, Math.round(TICK / (2 * hz))); for (let v = 1; v <= 15; v++) noises.push({ kind: "noisetone", n: j + 1, v, tp }); });
       // Per channel: free mode lets every channel be anything. Speech mode:
       // gated updates are silent; unvoiced ones noise only; voiced ones put
       // A within a harmonic of F1 and B of F2, C free, and no noise.
@@ -624,15 +701,36 @@
       else if (!f.voiced) chCands = [0, 1, 2].map(() => [OFF].concat(noises));
       else {
         const [f1, f2] = f.formants;
-        chCands = [f1 ? cands.filter(near(f1)) : cands, f2 ? cands.filter(near(f2)) : cands, cands];
+        // formantPairs: C joins A near F1, so the pair can place F1 between harmonics.
+        chCands = [f1 ? cands.filter(near(f1)) : cands, f2 ? cands.filter(near(f2)) : cands, o.formantPairs && f1 ? cands.filter(near(f1)) : cands];
       }
       const noiseUnit = new Map();
       const contrib = (c, np) => {
         if (c.kind === "env") return envTemplate(ep, c.n, count);
-        if (c.kind === "square") return scaled(squareTemplate(ep, c.n, count), LEVEL[c.v] ** 2);
+        if (c.kind === "square") {
+          if (!c.tp) return scaled(squareTemplate(ep, c.n, count), LEVEL[c.v] ** 2);
+          const key = "sq" + c.tp;
+          if (!noiseUnit.has(key)) noiseUnit.set(key, squareFromTp(c.tp, base, count));
+          return scaled(noiseUnit.get(key), LEVEL[c.v] ** 2);
+        }
         if (c.kind === "noise") {
           if (!noiseUnit.has(np)) noiseUnit.set(np, noiseTemplate(np, base, count));
           return scaled(noiseUnit.get(np), LEVEL[c.v] ** 2);
+        }
+        if (c.kind === "envgate") return scaled(envTemplate(ep, 0, count), 0.25);
+        if (c.kind === "envnoise") {
+          const key = "en" + np;
+          if (!noiseUnit.has(key)) {
+            const e = envTemplate(ep, 0, count), nz = noiseTemplate(np, base, count), t = new Float64Array(count);
+            for (let k = 0; k < count; k++) t[k] = e[k] / 4 + nz[k] * ENV_MEAN_SQ;
+            noiseUnit.set(key, t);
+          }
+          return noiseUnit.get(key);
+        }
+        if (c.kind === "noisetone") {
+          const key = `nt${np}/${c.tp}`;
+          if (!noiseUnit.has(key)) noiseUnit.set(key, noiseToneTemplate(np, c.tp, base, count));
+          return scaled(noiseUnit.get(key), LEVEL[c.v] ** 2);
         }
         return null;
       };
@@ -661,7 +759,7 @@
             }
             if (best !== st.ch[i]) { st.ch[i] = best; changed = true; }
           }
-          if (st.ch.some((c) => c.kind === "noise")) {
+          if (st.ch.some((c) => c.kind === "noise" || c.kind === "envnoise" || c.kind === "noisetone")) {
             let bestNp = st.np, bestScore = Infinity;
             for (const np of NOISE_PERIODS) { const s = score({ ch: st.ch, np }); if (s < bestScore) { bestScore = s; bestNp = np; } }
             if (bestNp !== st.np) { st.np = bestNp; changed = true; }
@@ -693,17 +791,18 @@
       const r = new Array(14).fill(0);
       let mixer = 0x3f;
       f.state.ch.forEach((c, i) => {
-        if (c.n) { const tp = tpFor(f.ep, c.n); r[2 * i] = tp & 0xff; r[2 * i + 1] = tp >> 8; }
-        if (c.kind === "env" && c.n || c.kind === "square") mixer &= ~(1 << i);
-        if (c.kind === "noise") mixer &= ~(8 << i);
-        r[8 + i] = c.kind === "env" ? 0x10 : c.kind === "off" ? 0 : c.v;
+        const tp = c.tp || (c.n && (c.kind === "env" || c.kind === "square") ? tpFor(f.ep, c.n) : 0);
+        if (tp) { r[2 * i] = tp & 0xff; r[2 * i + 1] = tp >> 8; }
+        if (tp) mixer &= ~(1 << i);                                  // tone on
+        if (c.kind === "noise" || c.kind === "envnoise" || c.kind === "noisetone") mixer &= ~(8 << i);
+        r[8 + i] = c.kind === "env" || c.kind === "envgate" || c.kind === "envnoise" ? 0x10 : c.kind === "off" ? 0 : c.v;
       });
       r[6] = f.state.np;
       r[7] = mixer;
       r[11] = f.ep & 0xff;
       r[12] = f.ep >> 8;
-      r[13] = 8;
-      const env = f.state.ch.some((c) => c.kind === "env");
+      r[13] = ENV_SHAPE;
+      const env = f.state.ch.some((c) => c.kind === "env" || c.kind === "envgate" || c.kind === "envnoise");
       const shape = env && !started;
       if (env) started = true;
       return { regs: r, shape };
@@ -724,13 +823,22 @@
     const cents = analysis.frames.map((f, i) => (f.voiced ? 1200 * Math.log2(out[i].f0q / f.f0) : null)).filter((c) => c !== null);
     let writes = 0;
     regs.forEach((f, i) => { if (i) for (let r = 0; r < 14; r++) if (f.regs[r] !== regs[i - 1].regs[r] && r !== 13) writes++; });
-    const use = { off: 0, env: 0, square: 0, noise: 0 };
+    const use = { off: 0, env: 0, square: 0, noise: 0, envgate: 0, envnoise: 0, noisetone: 0 };
     for (const f of out) for (const c of f.state.ch) use[c.kind]++;
     return {
       frames: out.length,
       voicedShare: voiced.length / Math.max(1, out.length),
       modelErrorDb: Math.sqrt(out.reduce((s, f) => s + f.cost, 0) / Math.max(1, out.length)),
       pitchStepCents: { mean: cents.reduce((s, c) => s + Math.abs(c), 0) / Math.max(1, cents.length), max: maxOf(cents.map(Math.abs), 0) },
+      // The same over 4-update windows (80 ms at 50 Hz), where dithering pays off.
+      pitchAvgCents: (() => {
+        const w = [];
+        for (let i = 0; i + 4 <= out.length; i += 4) {
+          const fr = analysis.frames.slice(i, i + 4);
+          if (fr.every((x) => x.voiced)) w.push(Math.abs(fr.reduce((sum, x, j) => sum + 1200 * Math.log2(out[i + j].f0q / x.f0), 0) / 4));
+        }
+        return w.length ? w.reduce((a2, b2) => a2 + b2, 0) / w.length : 0;
+      })(),
       writesPerFrame: writes / Math.max(1, out.length - 1),
       // Data before any compression: 14 bytes an update raw; or a 2-byte
       // mask of changed registers plus the changed bytes.
@@ -959,6 +1067,6 @@
     return { cols, bins, db, hz: rate / size };
   }
 
-  return { get CLOCK() { return CLOCK; }, MACHINES, setClock, dump, FRAME_RATE, DEFAULTS, LEVEL, readWav, writeWav, analyse, match, render, evaluate, spectrogram, slots, epFor, pitchOf, tpFor,
-    envTemplate, squareTemplate, noiseTemplate, maxOf, stoi, fft, resample, preprocess, fitTo, abSequence };
+  return { get CLOCK() { return CLOCK; }, MACHINES, setClock, setShape, dump, FRAME_RATE, DEFAULTS, LEVEL, readWav, writeWav, analyse, match, render, evaluate, spectrogram, slots, epFor, pitchOf, tpFor,
+    envTemplate, squareTemplate, noiseTemplate, noiseToneTemplate, ENV_MEAN_SQ, maxOf, stoi, fft, resample, preprocess, fitTo, abSequence };
 });
