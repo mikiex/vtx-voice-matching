@@ -124,4 +124,35 @@ test("preprocessing: transparent when off; denoise removes a steady background",
   assert.ok(20 * Math.log10(after / before) < -15, `hum lowered ${(20 * Math.log10(after / before)).toFixed(1)} dB`);
 });
 
+test("per-stretch envelope shapes: each gated tone's period follows its own update's shape", () => {
+  // A triangle cycle is 64 steps, a sawtooth 32: a tone locked to harmonic n
+  // has period steps * EP / (2 n). Registers once used the global shape.
+  const analysis = VM.analyse(samples, RATE, {});
+  const r = VM.match(analysis, { envShape: "segments", segmentShapes: ["triangle"] });
+  let checked = 0;
+  r.frames.forEach((f, i) => f.state.ch.forEach((c, ch) => {
+    if (c.kind !== "env" || !c.n) return;
+    const tp = r.regs[i].regs[2 * ch] | (r.regs[i].regs[2 * ch + 1] << 8);
+    assert.strictEqual(tp, Math.round(64 * f.ep / (2 * c.n)), `update ${i}, channel ${ch}`);
+    assert.strictEqual(r.regs[i].regs[13], 10);
+    checked++;
+  }));
+  assert.ok(checked > 0, "some envelope-gated tones were checked");
+});
+
+test("writes within an update (events) take effect at their time", () => {
+  // One update of a square on A; the volume drops to 0 at 10 ms by an event.
+  const tp = 200, regs = [0, 0, 0].map(() => new Array(14).fill(0));
+  regs.forEach((r) => { r[0] = tp; r[7] = 0x3e; r[8] = 15; });
+  const frames = regs.map((r, i) => ({ regs: r, shape: false, events: i === 1 ? [{ t: 0.010, reg: 8, value: 0 }] : undefined }));
+  const x = VM.render(frames, 44100, Ayumi, 50);
+  // Variance, not power: Ayumi's DC filter (1,024 samples) leaves a slow drift after the sound stops.
+  const level = (from, to) => {
+    const seg = Array.from(x.subarray(Math.round(from * 44100), Math.round(to * 44100))), m = seg.reduce((u, v) => u + v, 0) / seg.length;
+    return seg.reduce((u, v) => u + (v - m) ** 2, 0) / seg.length;
+  };
+  assert.ok(level(0.022, 0.029) > 1e-4, "sounding before the event");
+  assert.ok(level(0.032, 0.039) < level(0.022, 0.029) / 100, "silent after the event (10 ms into update 1)");
+});
+
 console.log(`all passed (${passed})`);

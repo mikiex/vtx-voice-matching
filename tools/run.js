@@ -37,6 +37,8 @@ function args(argv) {
     else if (a === "--channels") o.channels = ["A", "B", "C"].map((c) => argv[++i].toUpperCase().includes(c));
     else if (a === "--out") o.out = argv[++i];
     else if (a === "--reference") o.reference = argv[++i];
+    else if (a === "--triangle") o.envShape = "triangle";
+    else if (a === "--segments") o.envShape = "segments";
     else if (a === "--machine") { const m = VM.MACHINES[argv[++i]]; if (!m) { console.error(`machines: ${Object.keys(VM.MACHINES).join(", ")}`); process.exit(2); } o.clock = m.clock; }
     else if (a === "--level") o.levelDb = Number(argv[++i]);
     else if (a.startsWith("--")) o[a.slice(2)] = Number(argv[++i]);

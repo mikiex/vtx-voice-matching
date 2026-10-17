@@ -97,9 +97,15 @@
     envGate: false,                 // envelope gated by an ultrasonic tone (period 1): the buzz at -6 dB
     noiseTone: true,                // noise ANDed with a 1-6 kHz tone: noise moved up the spectrum (default since 17 Oct 2026: preferred 4/4 blind on noisy and cleaned speech, a tie on clean)
     // Pitch options:
-    envShape: "saw",                // "saw" (shape 8) or "triangle" (shape 10)
+    envShape: "saw",                // "saw" (shape 8), "triangle" (shape 10), "segments" (chosen per voiced
+                                    // stretch, R13 written at the gaps), or "auto": triangle when the
+    triangleBelowHz: 110,           // phrase's median voiced pitch is below this (deep voices), else saw
     phaseLock: false,               // envelope-gated tones only on harmonics that divide the cycle exactly
     formantPairs: false,            // speech mode: C joins A near F1
+    // Plosive bursts at sharp onsets after near-silence ("p", "t", "k", "b", "d", "g"):
+    plosiveEnv: false,              // a noise channel at envelope volume, one-shot decay (R13 shape 0), when the envelope is free
+    plosiveVol: false,              // volume steps 15, 11, 7, 3 within the update (needs mid-update writes)
+    plosiveMs: 10,                  // burst length
     exactSquares: true,             // squares tuned to the recording's pitch, not the rounded envelope pitch (default since 17 Oct 2026: never lost by ear, helps singing)
     dither: false,                  // envelope period by error diffusion: the average pitch lands on target
   };
@@ -597,10 +603,30 @@
   const OFF = { kind: "off", n: 0, v: 0 };
   const sameSetting = (a, b) => a.kind === b.kind && a.n === b.n;
 
+  // A state as a canonical codebook key: the three channels sorted (A, B and
+  // C sound alike), the noise period only when a channel uses noise.
+  const chKey = (c) => (c.kind === "off" ? "off" : `${c.kind}:${c.n}:${c.v}`);
+  function stateKey(st) {
+    const noisy = st.ch.some((c) => c.kind === "noise" || c.kind === "envnoise" || c.kind === "noisetone");
+    return st.ch.map(chKey).sort().join("|") + (noisy ? `#${st.np}` : "");
+  }
+  function keyToEntry(key) {
+    const [chs, np] = key.split("#");
+    return { ch: chs.split("|").map((t) => { if (t === "off") return { kind: "off", n: 0, v: 0 }; const [kind, n, v] = t.split(":"); return { kind, n: +n, v: +v }; }), np: np ? +np : 0 };
+  }
+
   function match(analysis, options = {}) {
     const o = { ...analysis.options, ...options };
     setClock(o.clock || 1500000);
-    setShape(o.envShape);
+    // auto: one shape for the whole phrase (changing it restarts the envelope).
+    let shape = o.envShape;
+    const segments = shape === "segments";
+    if (segments) shape = "saw";                  // for the level trial; chosen per stretch below
+    if (shape === "auto") {
+      const pitches = analysis.frames.filter((f) => f.voiced).map((f) => f.f0).sort((x, y) => x - y);
+      shape = pitches.length && pitches[pitches.length >> 1] < o.triangleBelowHz ? "triangle" : "saw";
+    }
+    setShape(shape);
     const { frames, binHz } = analysis;
     const ref = buzzPower();
     // Starting level: the loudest voiced frames (90th percentile of slot
@@ -622,9 +648,37 @@
       for (const d of [auto - 1.5, auto + 1.5]) { const c = trial(d); if (c < best) { best = c; auto = d; } }
     }
     const gain = start * Math.pow(10, (auto + o.levelDb) / 10), floor = eps * Math.pow(10, auto / 10);
-    const out = search(analysis, o, gain, floor, frames.map((_, i) => i), false);
+    let out;
+    if (!segments) out = search(analysis, o, gain, floor, frames.map((_, i) => i), false);
+    else {
+      // Per stretch: a gap in the voicing plus the voiced run after it. Each
+      // stretch tries the sawtooth and the triangle and keeps the lower cost;
+      // R13 changes only where the shape does, at the stretch's first
+      // envelope update (normally where voicing starts).
+      const segs = [];
+      let cur = [], voiced = false;
+      frames.forEach((f, i) => {
+        if (!f.voiced && voiced) { segs.push(cur); cur = []; voiced = false; }
+        if (f.voiced) voiced = true;
+        cur.push(i);
+      });
+      if (cur.length) segs.push(cur);
+      out = new Array(frames.length);
+      for (const seg of segs) {
+        let best = null;
+        for (const sh of o.segmentShapes || ["saw", "triangle"]) {
+          setShape(sh);
+          const r = search(analysis, o, gain, floor, seg, false), c = r.reduce((sum, f) => sum + f.cost, 0);
+          if (!best || c < best.c) best = { c, r, code: sh === "triangle" ? 10 : 8 };
+        }
+        best.r.forEach((f, k) => { f.shapeCode = best.code; out[seg[k]] = f; });
+      }
+      setShape("saw");
+      shape = "segments";
+    }
+    if (o.plosiveEnv || o.plosiveVol) markPlosives(analysis, out, o);
     const regs = registers(out);
-    return { frames: out, regs, updates: o.updates, clock: CLOCK, gain, autoLevelDb: auto, eps: floor, stats: stats(analysis, out, regs) };
+    return { frames: out, regs, updates: o.updates, clock: CLOCK, envShape: shape, gain, autoLevelDb: auto, eps: floor, stats: stats(analysis, out, regs) };
   }
 
   // Matches the given frames in order. `quick`: no smoothing (frames apart).
@@ -768,10 +822,39 @@
         }
         return st;
       };
-      const a = descend(prev), b = descend({ ch: [OFF, OFF, OFF], np: prev.np });
-      const st = score(a) <= score(b) ? a : b;
+      let st, entry = -1;
+      if (o.codebook) {
+        // Codebook: every entry at this update's pitch; keep the best. Entries
+        // hold harmonic numbers, so the tone periods come from the pitch here.
+        let bestScore = Infinity;
+        // Gain-shape: each entry also at every gain in codebookGains (volume
+        // steps added to the fixed-volume channels; the envelope channels
+        // have no volume).
+        const gains = o.codebookGains || [0];
+        for (const g of gains) o.codebook.forEach((e0, j) => {
+          const e = g ? { ...e0, ch: e0.ch.map((c) => (c.kind === "square" || c.kind === "noise" || c.kind === "noisetone" ? { ...c, v: Math.max(1, Math.min(15, c.v + g)) } : c)) } : e0;
+          const cand = { ch: e.ch.map((c) => {
+            if (c.kind === "square") { const tp = squareTp(c.n); return tp ? { ...c, tp } : c; }
+            if (c.kind === "noisetone") return { ...c, tp: Math.max(1, Math.round(TICK / (2 * NOISE_TONES[c.n - 1]))) };
+            if (c.kind === "envgate") return { ...c, tp: 1 };
+            return c;
+          }), np: e.np || prev.np };
+          const sc = score(cand);
+          if (sc < bestScore) { bestScore = sc; st = cand; entry = j; st.gain = g; }
+        });
+        // Escape: when the full search beats the best entry by more than
+        // codebookEscape (in the cost's mean squared dB), store this update
+        // as full registers instead.
+        if (o.codebookEscape !== undefined) {
+          const fa = descend(prev), fb = descend({ ch: [OFF, OFF, OFF], np: prev.np }), full = score(fa) <= score(fb) ? fa : fb;
+          if (score(full) + o.codebookEscape < bestScore) { st = full; entry = -2; }
+        }
+      } else {
+        const a = descend(prev), b = descend({ ch: [OFF, OFF, OFF], np: prev.np });
+        st = score(a) <= score(b) ? a : b;
+      }
       const M = total(st);
-      out.push({ ep, f0q, base, count, state: st, R: Array.from(R, (r) => r * gain), M: Array.from(M), eps: fe, cost: cost(M) });
+      out.push({ entry, ep, steps: ENV_STEPS, f0q, base, count, state: st, R: Array.from(R, (r) => r * gain), M: Array.from(M), eps: fe, cost: cost(M) });
       prev = st;
     }
     return out;
@@ -785,13 +868,35 @@
 
   // AY registers R0..R13 per frame; `shape` marks the frame that writes R13
   // (shape 8, once, when the envelope is first used: rewriting restarts it).
+  // Plosive onsets: an update at least 10 dB louder than the one before,
+  // which was at least 30 dB below the loudest (a closure, then the release).
+  // The burst goes on an unused channel, or the quietest fixed-volume one.
+  const usesEnv = (st) => st.ch.some((c) => c.kind === "env" || c.kind === "envgate" || c.kind === "envnoise");
+  function markPlosives(analysis, out, o) {
+    const fr = analysis.frames, loud = maxOf(fr.map((f) => f.rms)), quiet = loud * Math.pow(10, -30 / 20);
+    for (let i = 1; i < out.length; i++) {
+      if (!(fr[i - 1].rms < quiet && fr[i].rms > fr[i - 1].rms * Math.pow(10, 10 / 20))) continue;
+      const ch = out[i].state.ch;
+      let pick = ch.findIndex((c) => c.kind === "off");
+      if (pick < 0) {
+        const fixed = ch.map((c, k) => [c, k]).filter(([c]) => c.kind === "square" || c.kind === "noise" || c.kind === "noisetone");
+        if (fixed.length) pick = fixed.sort((x, y) => x[0].v - y[0].v)[0][1];
+      }
+      if (pick < 0) continue;
+      const envFree = !usesEnv(out[i].state) && !usesEnv(out[i - 1].state);
+      if (o.plosiveEnv && envFree) out[i].burst = { kind: "env", ch: pick, ep: Math.max(1, Math.round(o.plosiveMs * TICK / 32000)) };
+      else if (o.plosiveVol) out[i].burst = { kind: "vol", ch: pick, ms: o.plosiveMs };
+    }
+  }
+
   function registers(frames) {
-    let started = false;
+    let written = -1;                               // the shape R13 last started
     return frames.map((f) => {
       const r = new Array(14).fill(0);
       let mixer = 0x3f;
       f.state.ch.forEach((c, i) => {
-        const tp = c.tp || (c.n && (c.kind === "env" || c.kind === "square") ? tpFor(f.ep, c.n) : 0);
+        // The tone period for this update's own envelope shape (stretches can differ).
+        const tp = c.tp || (c.n && (c.kind === "env" || c.kind === "square") ? Math.max(1, Math.min(4095, Math.round((f.steps || ENV_STEPS) * f.ep / (2 * c.n)))) : 0);
         if (tp) { r[2 * i] = tp & 0xff; r[2 * i + 1] = tp >> 8; }
         if (tp) mixer &= ~(1 << i);                                  // tone on
         if (c.kind === "noise" || c.kind === "envnoise" || c.kind === "noisetone") mixer &= ~(8 << i);
@@ -801,11 +906,31 @@
       r[7] = mixer;
       r[11] = f.ep & 0xff;
       r[12] = f.ep >> 8;
-      r[13] = ENV_SHAPE;
-      const env = f.state.ch.some((c) => c.kind === "env" || c.kind === "envgate" || c.kind === "envnoise");
-      const shape = env && !started;
-      if (env) started = true;
-      return { regs: r, shape };
+      let code = f.shapeCode || ENV_SHAPE, env = f.state.ch.some((c) => c.kind === "env" || c.kind === "envgate" || c.kind === "envnoise");
+      let events;
+      if (f.burst && f.burst.kind === "env") {
+        // Envelope burst: noise on, tone off, envelope volume, a one-shot decay (shape 0).
+        const b = f.burst.ch;
+        r[7] = (r[7] | (1 << b)) & ~(8 << b);
+        r[8 + b] = 0x10;
+        r[11] = f.burst.ep & 0xff;
+        r[12] = f.burst.ep >> 8;
+        code = 0;
+        env = true;
+      } else if (f.burst && f.burst.kind === "vol") {
+        // Volume burst: noise on, tone off, volumes 15, 11, 7, 3 across the burst,
+        // then the update's own mixer and volume.
+        const b = f.burst.ch, step = f.burst.ms / 4000;
+        const mix = (r[7] | (1 << b)) & ~(8 << b);
+        events = [{ t: 0, reg: 7, value: mix }, ...[15, 11, 7, 3].map((v, k) => ({ t: k * step, reg: 8 + b, value: v })),
+          { t: 4 * step, reg: 8 + b, value: r[8 + b] }, { t: 4 * step, reg: 7, value: r[7] }];
+      }
+      r[13] = code;
+      // Write R13 (restarting the envelope) only when the envelope is first
+      // used, or when a stretch changes the shape.
+      const shape = env && code !== written;
+      if (env) written = code;
+      return events ? { regs: r, shape, events } : { regs: r, shape };
     });
   }
 
@@ -879,11 +1004,27 @@
       ay.setNoise(r[6]);
       ay.setEnvelope(r[11] | (r[12] << 8));
       if (frame.shape) ay.setEnvelopeShape(r[13]);
+      // Writes within the update (events: { t seconds after its start, reg, value }).
+      const cur = r.slice(), ev = (frame.events || []).slice().sort((x, y) => x.t - y.t);
+      const write = (reg, value) => {
+        cur[reg] = value;
+        if (reg === 6) ay.setNoise(value);
+        else if (reg === 13) ay.setEnvelopeShape(value);
+        else if (reg === 11 || reg === 12) ay.setEnvelope(cur[11] | (cur[12] << 8));
+        else for (let i = 0; i < 3; i++) {
+          ay.setTone(i, cur[2 * i] | ((cur[2 * i + 1] & 0x0f) << 8));
+          ay.setMixer(i, (cur[7] >> i) & 1, (cur[7] >> (i + 3)) & 1, (cur[8 + i] >> 4) & 1);
+          ay.setVolume(i, cur[8 + i] & 0x0f);
+        }
+      };
+      let e = 0;
       for (let s = edge(n); s < edge(n + 1); s++) {
+        while (e < ev.length && edge(n) + ev[e].t * rate <= s) { write(ev[e].reg, ev[e].value); e++; }
         ay.process();
         ay.removeDC();
         out[k++] = Math.max(-1, Math.min(1, ay.left * RENDER_GAIN));
       }
+      while (e < ev.length) { write(ev[e].reg, ev[e].value); e++; }
     });
     return out;
   }
@@ -1067,6 +1208,6 @@
     return { cols, bins, db, hz: rate / size };
   }
 
-  return { get CLOCK() { return CLOCK; }, MACHINES, setClock, setShape, dump, FRAME_RATE, DEFAULTS, LEVEL, readWav, writeWav, analyse, match, render, evaluate, spectrogram, slots, epFor, pitchOf, tpFor,
+  return { get CLOCK() { return CLOCK; }, MACHINES, setClock, setShape, stateKey, keyToEntry, dump, FRAME_RATE, DEFAULTS, LEVEL, readWav, writeWav, analyse, match, render, evaluate, spectrogram, slots, epFor, pitchOf, tpFor,
     envTemplate, squareTemplate, noiseTemplate, noiseToneTemplate, ENV_MEAN_SQ, maxOf, stoi, fft, resample, preprocess, fitTo, abSequence };
 });
