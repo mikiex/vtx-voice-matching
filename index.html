@@ -41,7 +41,7 @@
 <main>
 <section class="hero">
   <h1>Making an AY chip imitate a voice</h1>
-  <p class="lede">This is an experiment that follows on from <a href="https://mikiex.github.io/vtx-speech/">VTX Speech</a>. That project builds speech from text: words become phonemes, and phonemes become AY register settings using the chip's envelope as the buzz of a voice. Here the starting point is a recording instead. For every 50th of a second, the tool searches for the AY register settings that sound closest to the recording, then plays the result through an AY emulator so you can compare.</p>
+  <p class="lede">This is an experiment that follows on from <a href="https://mikiex.github.io/vtx-speech/">VTX Speech</a>. That project builds speech from text: words become phonemes, and phonemes become AY register settings using the chip's envelope as the buzz of a voice. It runs on a real Vectrex: the robots in the game <i>Verzerk Unplugged</i> speak with it. Here the starting point is a recording instead. For every 50th of a second, the tool searches for the AY register settings that sound closest to the recording, then plays the result through an AY emulator so you can compare.</p>
   <p class="dim">Everything runs in your browser. Load a WAV file, record your own voice or try the examples; nothing is uploaded. For noisy recordings, clean them first with <a href="https://huggingface.co/nvidia/RE-USE">NVIDIA RE-USE</a> (section 4). There is no cartridge or Spectrum player yet: the output is register data, checked only in emulation.</p>
   <a class="cta" href="tool.html">Open the tool</a>
   <a class="cta secondary" href="https://github.com/mikiex/vtx-voice-matching">Source on GitHub</a>
@@ -178,7 +178,7 @@
   </div>
   <p><b>Data size.</b> At 50 Hz the raw stream is 700 bytes a second, so a 32 KB cartridge holds about 45 seconds. Most registers do not change every update: storing a 2-byte mask of the changed registers plus their values takes 300–350 bytes a second on the test clips. A real format would compress further. The tool shows both figures for each match.</p>
   <p><b>CPU time</b> is small: writing 14 registers is a few hundred cycles, a percent or two of a 50 Hz frame.</p>
-  <p class="dim">For the phoneme-based speech player, which stores words instead of frames and is much smaller, see <a href="https://mikiex.github.io/vtx-speech/">VTX Speech</a>.</p>
+  <p class="dim">For the phoneme-based speech player, which stores words instead of frames and is much smaller, see <a href="https://mikiex.github.io/vtx-speech/">VTX Speech</a>. It is the speech in <i>Verzerk Unplugged</i>.</p>
 </section>
 
 <section id="others" class="prose">
